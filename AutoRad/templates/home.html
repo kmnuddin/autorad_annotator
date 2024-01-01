@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+     <div class="row flex-nowrap">
+
+        <!-- Collapsible Sidebar -->
+       <div class="col-auto col-md-3 col-xl-2 px-sm-2 px-0 bg-dark">
+            <div class="d-flex flex-column align-items-center align-items-sm-start px-3 pt-2 text-white min-vh-100">
+                <a href="/" class="d-flex align-items-center pb-3 mb-md-0 me-md-auto text-white text-decoration-none">
+                    <i class="bi bi-radioactive"></i> <span class="fs-5 d-none d-sm-inline">AutoRad</span>
+                </a>
+                <ul class="nav nav-pills flex-column mb-sm-auto mb-0 align-items-center align-items-sm-start" id="menu">
+                    <li class="nav-item">
+                        <a href="#" class="nav-link align-middle px-0">
+                            <i class="fs-4 bi-house"></i> <span class="ms-1 d-none d-sm-inline">Home</span>
+                        </a>
+                    </li>
+
+                </ul>
+                <hr>
+                <div class="dropdown pb-4">
+                    <a href="#" class="d-flex align-items-center text-white text-decoration-none dropdown-toggle" id="dropdownUser1" data-bs-toggle="dropdown" aria-expanded="false">
+                        <img src="https://github.com/mdo.png" alt="hugenerd" width="30" height="30" class="rounded-circle">
+                        <span class="d-none d-sm-inline mx-1">loser</span>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-dark text-small shadow" aria-labelledby="dropdownUser1">
+                        <li><a class="dropdown-item" href="#">New project...</a></li>
+                        <li><a class="dropdown-item" href="#">Settings</a></li>
+                        <li><a class="dropdown-item" href="#">Profile</a></li>
+                        <li>
+                            <hr class="dropdown-divider">
+                        </li>
+                        <li><a class="dropdown-item" href="#">Sign out</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+{#        <main class="col ps-md-2 pt-2">#}
+{#            <a href="#" data-bs-target="#sidebar" data-bs-toggle="collapse" class="border rounded-3 p-1 text-decoration-none"><i class="bi bi-list bi-lg py-2 p-1"></i> Menu</a>#}
+
+
+        <!-- Main content -->
+        <main role="main" class="col-md-9 ml-sm-auto col-lg-10 px-4">
+            <!-- Module Titles -->
+            <div class="row mb-4 align-items-center">
+                <div class="col-md-8">
+                    <h3 class="display-12">Anatomical Segmentation</h3>
+                </div>
+                <div class="col-md-4">
+                    <h3 class="display-12">Severity Assessment</h3>
+                </div>
+            </div>
+        <hr class="my-2">
+
+    <!-- Row for Image Placeholders and Severity Assessment Dropdowns -->
+        <div class="row">
+            <!-- Column for Image Placeholders -->
+            <div class="col-md-8">
+                <div class="row">
+                    <!-- Image Placeholder 1 -->
+                    <div class="col-md-4 mb-3">
+                        <div class="border rounded d-flex justify-content-center align-items-center" style="height: 200px;">
+                            <span>Image 1</span>
+                        </div>
+                    </div>
+
+                    <!-- Image Placeholder 2 -->
+                    <div class="col-md-4 mb-3">
+                        <div class="border rounded d-flex justify-content-center align-items-center" style="height: 200px;">
+                            <span>Image 2</span>
+                        </div>
+                    </div>
+
+                    <!-- Image Placeholder 3 -->
+                    <div class="col-md-4 mb-3">
+                        <div class="border rounded d-flex justify-content-center align-items-center" style="height: 200px;">
+                            <span>Image 3</span>
+                        </div>
+                    </div>
+                </div>
+                 <!-- Divider -->
+                <hr class="my-2">
+                <!-- Upload Button -->
+                <div class="row">
+                    <div class="col-md-12">
+                        <form action="/upload-path/" method="post" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            <div class="mb-2">
+                                <input type="file" name="image" accept="image/*" class="form-control">
+                            </div>
+                            <div>
+                                <button type="submit" class="btn btn-primary">Submit</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Column for Severity Assessment Dropdowns -->
+            <div class="col-md-4">
+
+                <!-- Stenosis Severity -->
+                <div class="input-group mb-3">
+                    <div class="input-group-prepend">
+                        <label class="input-group-text fixed-width-label" for="stenosisSeverity">Stenosis Severity</label>
+                    </div>
+                    <select class="form-select small-font" id="stenosisSeverity">
+                        <option selected>None</option>
+                        <option value="1">Mild</option>
+                        <option value="2">Moderate</option>
+                        <option value="3">Severe</option>
+                    </select>
+                </div>
+
+                <!-- Dural/Thecal Sac Compression -->
+                <div class="input-group mb-3">
+                    <div class="input-group-prepend">
+                        <label class="input-group-text fixed-width-label" for="duralSacCompression">Dural/Thecal Sac Compression</label>
+                    </div>
+                    <select class="form-select small-font" id="duralSacCompression">
+                        <option selected>None</option>
+                        <option value="1">Mild</option>
+                        <option value="2">Moderate</option>
+                        <option value="3">Severe</option>
+                    </select>
+                </div>
+
+                <div class="input-group mb-3">
+                    <div class="input-group-prepend">
+                        <label class="input-group-text fixed-width-label" for="foraminalStenosis">Foraminal Stenosis</label>
+                    </div>
+                    <select class="form-select small-font" id="foraminalStenosis">
+                        <option selected>None</option>
+                        <option value="1">Mild</option>
+                        <option value="2">Moderate</option>
+                        <option value="3">Severe</option>
+                    </select>
+                </div>
+
+                <!-- Dural/Thecal Sac Compression -->
+                <div class="input-group mb-3">
+                    <div class="input-group-prepend">
+                        <label class="input-group-text fixed-width-label" for="discHerniation">Disc Herniation Severity</label>
+                    </div>
+                    <select class="form-select small-font" id="discHerniation">
+                        <option selected>None</option>
+                        <option value="1">Protrusion</option>
+                        <option value="2">Extrusion</option>
+                        <option value="3">Sequestration</option>
+                        <option value="4">Bulge</option>
+                    </select>
+                </div>
+
+                <div class="input-group mb-3">
+                    <div class="input-group-prepend">
+                        <label class="input-group-text fixed-width-label" for="discHerniationType">Disc Herniation Type</label>
+                    </div>
+                    <select class="form-select small-font" id="discHerniationType">
+                        <option selected>None</option>
+                        <option value="1">Central</option>
+                        <option value="2">Left</option>
+                        <option value="3">Right</option>
+                        <option value="4">Bulge</option>
+                    </select>
+                </div>
+
+                <div class="input-group mb-3">
+                    <div class="input-group-prepend">
+                        <label class="input-group-text fixed-width-label" for="annularTear">Annular Tear</label>
+                    </div>
+                    <select class="form-select small-font" id="annularTear">
+                        <option selected>Absent</option>
+                        <option value="1">Present</option>
+                    </select>
+                </div>
+
+                <div class="input-group mb-3">
+                    <div class="input-group-prepend">
+                        <label class="input-group-text fixed-width-label" for="facetHypertrophy">Facet Hypertrophy</label>
+                    </div>
+                    <select class="form-select small-font" id="facetHypertrophy">
+                        <option selected>Absent</option>
+                        <option value="1">Present</option>
+                    </select>
+                </div>
+
+                <div class="input-group mb-3">
+                    <div class="input-group-prepend">
+                        <label class="input-group-text fixed-width-label" for="facetArthropathy">Facet Arthropathy</label>
+                    </div>
+                    <select class="form-select small-font" id="facetArthropathy">
+                        <option selected>Absent</option>
+                        <option value="1">Present</option>
+                    </select>
+                </div>
+
+                <div class="input-group mb-3">
+                    <div class="input-group-prepend">
+                        <label class="input-group-text fixed-width-label" for="ligamentumFlavumHypertrophy">Ligamentum Flavum Hypertrophy</label>
+                    </div>
+                    <select class="form-select small-font" id="ligamentumFlavumHypertrophy">
+                        <option selected>Absent</option>
+                        <option value="1">Present</option>
+                    </select>
+                </div>
+
+
+
+
+            </div>
+
+        </div>
+     </main>
+
+
+    </div>
+</div>
+
+
+{% endblock %}
