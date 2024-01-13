@@ -15,9 +15,10 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from AutoRad.views import home
+from AutoRad.views import home, upload_image
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', home, name='home'),
+    path('upload-path/', upload_image, name='upload_image')
 ]

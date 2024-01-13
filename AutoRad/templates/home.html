@@ -64,7 +64,11 @@
                     <!-- Image Placeholder 1 -->
                     <div class="col-md-4 mb-3">
                         <div class="border rounded d-flex justify-content-center align-items-center" style="height: 200px;">
-                            <span>Image 1</span>
+                            {% if image_url %}
+                                <img src="{{ image_url }}" alt="Uploaded Image" style="height: 100%; width: auto;">
+                            {% else %}
+                                <span>Image 1</span>
+                            {% endif %}
                         </div>
                     </div>
 
