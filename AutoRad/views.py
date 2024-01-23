@@ -7,8 +7,7 @@ from rest_framework.response import Response
 import cv2
 from PIL import Image
 import torch
-from .models import model
-from .utils import lbl_decoder
+from .model import model
 import matplotlib.pyplot as plt
 from django.conf import settings
 from io import BytesIO
