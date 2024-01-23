@@ -17,14 +17,15 @@ from django.contrib import admin
 from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path
-from AutoRad.views import home, upload_image
+from AutoRad.views import home, upload_image, process_image
 
 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', home, name='home'),
-    path('upload-path/', upload_image, name='upload_image')
+    path('upload-path/', upload_image, name='upload_image'),
+    path('api/process-image/', process_image, name='process_image')
 ]
 
 if settings.DEBUG:
