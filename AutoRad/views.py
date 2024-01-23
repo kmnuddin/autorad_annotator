@@ -7,13 +7,13 @@ from rest_framework.response import Response
 import cv2
 from PIL import Image
 import torch
-from .model import model
+from .model import model, device
 import matplotlib.pyplot as plt
 from django.conf import settings
 from io import BytesIO
 import os
 
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
 def home(request):
     return render(request, 'home.html')
 
@@ -44,7 +44,6 @@ def process_image(request):
             img_mat = torch.from_numpy(img_mat)
             img_mat = img_mat.to(device)
             mask = model(img_mat)
-
 
         mask = torch.squeeze(torch.argmax(mask, dim=1))
         mask_np = mask.cpu().numpy()  # Convert the tensor to a numpy array
