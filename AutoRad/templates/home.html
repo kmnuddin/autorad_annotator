@@ -82,27 +82,33 @@
                         <form id="imageForm" action="/upload-path/" method="post" enctype="multipart/form-data">
                             {% csrf_token %}
                             <div class="mb-2">
-                                <input type="file" name="image" accept="image/*" class="form-control" id="imageUpload" onchange="displayUploadedImage()">
+                                <input type="file" name="image" accept="image/*" class="form-control" id="imageUpload" onchange="handleImageUpload()">
                             </div>
                             <div>
-                                <button type="button" class="btn btn-primary" onclick="uploadImage()">Submit</button>
+                                <button type="button" id="submitImage" class="btn btn-primary" onclick="uploadImage()" disabled>Submit</button>
+                                <button type="button" id="editImage" class="btn btn-secondary" onclick="editImage()" disabled>Edit</button>
                             </div>
                         </form>
                     </div>
                 </div>
+
+
                 <div class="row">
-                    <div class="annotation-canvas">
-                        <canvas id="annotation-canvas" style="width:320px; height:320px;"></canvas>
+                    <div class="col-md-12 text-center">
+                        <div class="annotation-controls">
+                            <button type="button" class="btn btn-primary" onclick="enableDrawingMode()">Toggle Drawing Mode</button>
+                            <button type="button" class="btn btn-primary" onclick="clearCanvas()">Clear</button>
+                            <!-- Add more controls as needed -->
+                        </div>
                     </div>
                 </div>
 
                 <div class="row">
-                    <div class="annotation-controls">
-                        <button type="button" class="btn btn-primary" onclick="enableDrawingMode()">Toggle Drawing Mode</button>
-                        <button type="button" class="btn btn-primary" onclick="clearCanvas()">Clear</button>
-                        <!-- Add more controls as needed -->
+                    <div class="col-md-12 text-center">
+                        <div class="annotation-canvas">
+                            <canvas id="annotation-canvas" style="border: 1px solid #cccccc;"></canvas>
+                        </div>
                     </div>
-
                 </div>
 
             </div>
@@ -229,6 +235,20 @@
 
 <script>
 
+function handleImageUpload() {
+    var imageInput = document.getElementById('imageUpload');
+    var submitButton = document.getElementById('submitImage');
+    if (imageInput.files && imageInput.files[0]) {
+        // Enable the submit button
+        submitButton.disabled = false;
+        // Display the uploaded image
+        displayUploadedImage();
+    } else {
+        // Disable the submit button if no image is chosen
+        submitButton.disabled = true;
+    }
+}
+
 function displayUploadedImage() {
     var input = document.getElementById('imageUpload');
     if (input.files && input.files[0]) {
@@ -278,6 +298,14 @@ function uploadImage() {
     });
 }
 
+function editImage() {
+    // Image editing logic goes here
+}
+
+// Initially disable submit button
+document.getElementById('submitImage').disabled = true;
+// Initially disable edit button
+document.getElementById('editImage').disabled = true;
 
 </script>
 

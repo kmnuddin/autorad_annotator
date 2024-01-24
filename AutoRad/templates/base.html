@@ -15,8 +15,19 @@
             overflow-x: hidden; /* Prevent scroll on x-axis */
         }
         .annotation-canvas {
-            border: 1px solid #ccc;
-            margin-top: 20px; /* Adjust based on your layout */
+            display: flex;
+            justify-content: center; /* This will center the canvas */
+        }
+
+        .annotation-controls {
+            margin-bottom: 1rem; /* Adds some space between the controls and the canvas */
+        }
+
+        #annotation-canvas {
+            border: 1px solid #cccccc; /* A border to make the canvas visible */
+            /* Set a fixed size for your canvas or make it responsive as per your requirement */
+            width: 320px;
+            height: 320px;
         }
 
 
@@ -78,7 +89,9 @@
     <script>
     // Initialize Fabric.js Canvas
         var canvas = new fabric.Canvas('annotation-canvas', {
-            isDrawingMode: true
+            isDrawingMode: true,
+            width: 620, // Match the width set in the CSS
+            height: 620 // Match the height set in the CSS
         });
 
         // Set drawing parameters (if needed)
