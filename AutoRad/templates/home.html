@@ -86,7 +86,7 @@
                             </div>
                             <div>
                                 <button type="button" id="submitImage" class="btn btn-primary" onclick="uploadImage()" disabled>Submit</button>
-                                <button type="button" id="editImage" class="btn btn-secondary" onclick="editImage()" disabled>Edit</button>
+                                <button type="button" id="editImage" class="btn btn-secondary" onclick="annotateImage()" disabled>Edit</button>
                             </div>
                         </form>
                     </div>
@@ -234,7 +234,6 @@
     </div>
 
 <script>
-
 function handleImageUpload() {
     var imageInput = document.getElementById('imageUpload');
     var submitButton = document.getElementById('submitImage');
@@ -251,6 +250,7 @@ function handleImageUpload() {
 
 function displayUploadedImage() {
     var input = document.getElementById('imageUpload');
+    var editButton = document.getElementById('editImage');
     if (input.files && input.files[0]) {
         var reader = new FileReader();
 
@@ -259,6 +259,10 @@ function displayUploadedImage() {
         }
 
         reader.readAsDataURL(input.files[0]);
+        editButton.disabled = false
+    }
+    else {
+        editButton.disabled = true
     }
 }
 
@@ -271,6 +275,30 @@ function getCSRFToken() {
         }
     }
     return null;
+}
+function annotateImage() {
+    var formData = new FormData();
+    formData.append('image_url', $('#imagePlaceholder1').attr('src'));
+    formData.append('mask_url', $('#imagePlaceholder2').attr('src'));
+
+    $.ajax({
+        type: 'POST',
+        url: '/api/show-blended-mri/',
+        data: formData,
+        processData: false,
+        contentType: false,
+        beforeSend: function(xhr, settings) {
+            xhr.setRequestHeader("X-CSRFToken", getCSRFToken());
+        },
+        success: function(response) {
+            var urlCreator = window.URL || window.webkitURL;
+            var imageUrl = urlCreator.createObjectURL(response);
+            document.querySelector("#annotation-canvas").style.backgroundImage = 'url(' + imageUrl + ')';
+        },
+        error: function(xhr, status, error) {
+            console.error('Error processing image', error);
+        }
+    });
 }
 
 function uploadImage() {
@@ -298,9 +326,7 @@ function uploadImage() {
     });
 }
 
-function editImage() {
-    // Image editing logic goes here
-}
+
 
 // Initially disable submit button
 document.getElementById('submitImage').disabled = true;

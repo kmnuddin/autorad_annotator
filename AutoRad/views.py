@@ -11,9 +11,10 @@ import torch
 from .model import model, device
 import matplotlib.pyplot as plt
 from django.conf import settings
+from django.utils.crypto import get_random_string
 from io import BytesIO
 import os
-
+import base64
 
 def home(request):
     return render(request, 'home.html')
@@ -85,37 +86,37 @@ def blend_image_with_mask(image, mask):
 
 @api_view(['POST'])
 def show_blended_mri(request):
-    # You'll need to adjust this to however you're receiving / storing the image and mask
-    # For example, if they're sent as file uploads in the request:
-    image_file = request.FILES.get('image')
-    mask_file = request.FILES.get('mask')
+    image_data = request.data.get('image_url')
+    mask_path = request.data.get('mask_url')
 
-    if not image_file or not mask_file:
-        return Response({'error': 'Image and/or mask file not provided'}, status=400)
+    if not image_data or not mask_path:
+        return Response({'error': 'Image data and/or mask path not provided'}, status=400)
 
-    # Read the image and mask files
-    image = cv2.imdecode(np.fromstring(image_file.read(), np.uint8), cv2.IMREAD_COLOR)
-    mask = cv2.imdecode(np.fromstring(mask_file.read(), np.uint8), cv2.IMREAD_GRAYSCALE)
+    # Decode the base64 image data
+    image_base64 = image_data.split(',')[1]
+    image_bytes = base64.b64decode(image_base64)
+    image = np.array(Image.open(BytesIO(image_bytes)))
+
+    # Read the mask file from the server
+    full_mask_path = os.path.join(settings.MEDIA_ROOT, mask_path.lstrip('/'))
+    mask = np.array(Image.open(mask_path))
 
     # Process the image and mask
     blended_image = blend_image_with_mask(image, mask)
 
     # Convert the blended image to an in-memory file
     pil_img = Image.fromarray((blended_image * 255).astype(np.uint8))
-    image_io = BytesIO()  # Create an in-memory bytes buffer
+    image_io = BytesIO()
     pil_img.save(image_io, format='PNG')
-    image_io.seek(0)  # Move to the beginning of the buffer
-
-    # Generate a file name. You may want to generate unique file names instead.
-    filename = 'blended_' + image_file.name
+    image_io.seek(0)
 
     # Save the in-memory file using Django's file storage system
-    fs = FileSystemStorage()  # Using Django's file storage system
-    image_path = fs.save(filename, ContentFile(image_io.read()))  # Save the actual image
-
-    # Get the URL for the saved image
+    unique_id = get_random_string(length=10)
+    filename = 'blended_{}_{}'.format(unique_id, os.path.basename(mask_path))
+    fs = FileSystemStorage()
+    image_path = fs.save(filename, ContentFile(image_io.read()))
     image_url = fs.url(image_path)
 
-    # Return the URL to the client
     return Response({'image_url': image_url})
+
 
