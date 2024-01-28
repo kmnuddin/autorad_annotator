@@ -1,7 +1,7 @@
 import numpy as np
 from django.shortcuts import render
 from django.core.files.storage import FileSystemStorage
-
+from urllib.parse import unquote
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.core.files.base import ContentFile
@@ -47,14 +47,14 @@ def process_image(request):
             img_mat = img_mat.to(device)
             mask = model(img_mat)
 
-        mask = torch.squeeze(torch.argmax(mask, dim=1))
+        # mask = torch.squeeze(torch.argmax(mask, dim=1))
         mask_np = mask.cpu().numpy()  # Convert the tensor to a numpy array
         mask_np = mask_np.astype(np.uint8)  # Ensure it's in 'uint8' format for image saving
         # mask_np = lbl_decoder(mask_np)
 
-        mask_filename = 'mask_' + filename
+        mask_filename = 'mask_' + filename.split('.')[0] + '.npy'
         mask_file_path = os.path.join(settings.MEDIA_ROOT, mask_filename)
-        plt.imsave(mask_file_path, mask_np, cmap='gray')  # Save as grayscale
+        np.save(mask_np, mask_filename)  # Save as .npy
 
         # Get the URL for the saved mask
         mask_url = fs.url(mask_filename)
@@ -87,7 +87,7 @@ def blend_image_with_mask(image, mask):
 @api_view(['POST'])
 def show_blended_mri(request):
     image_data = request.data.get('image_url')
-    mask_path = request.data.get('mask_url')
+    mask_path = unquote(request.data.get('mask_url'))
 
     if not image_data or not mask_path:
         return Response({'error': 'Image data and/or mask path not provided'}, status=400)
@@ -96,11 +96,11 @@ def show_blended_mri(request):
     image_base64 = image_data.split(',')[1]
     image_bytes = base64.b64decode(image_base64)
     image = np.array(Image.open(BytesIO(image_bytes)))
-
     # Read the mask file from the server
-    full_mask_path = os.path.join(settings.MEDIA_ROOT, mask_path.lstrip('/'))
-    mask = np.array(Image.open(mask_path))
+    full_mask_path = os.path.join(settings.BASE_DIR, mask_path.lstrip('/'))
 
+    mask = cv2.imread(full_mask_path, cv2.IMREAD_GRAYSCALE)
+    print(image.shape, np.unique(mask))
     # Process the image and mask
     blended_image = blend_image_with_mask(image, mask)
 
