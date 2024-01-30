@@ -318,7 +318,22 @@ function uploadImage() {
             }
         },
         success: function(response) {
-            $('#imagePlaceholder2').attr('src', response.mask_url);
+            // Extract relevant data from the response
+            var maskUrl = response.mask_url;
+            console.log(maskUrl)
+            // Second API call: view_mask
+            $.ajax({
+                type: 'POST',
+                url: '/api/view-mask/',
+                data: { 'mask_url': maskUrl },  // Pass relevant data to the second API
+                success: function(viewMaskResponse) {
+                    // Handle the response of the second API as needed
+                    console.log('Mask URL from view_mask:', viewMaskResponse.mask_url);
+                },
+                error: function() {
+                    console.error('Error calling view_mask API');
+                }
+            });
         },
         error: function() {
             console.error('Error processing image');

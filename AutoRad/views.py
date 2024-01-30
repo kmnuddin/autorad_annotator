@@ -30,6 +30,31 @@ def upload_image(request):
 
     return render(request, 'home.html', context)
 
+
+@api_view(['POST'])
+def view_mask(request):
+    mask_path = request.data.get('mask_url')
+    full_mask_path = os.path.join(settings.MEDIA_ROOT, unquote(mask_path))
+    mask = np.load(full_mask_path)
+
+    mask = np.squeeze(np.argmax(mask, axis=1))
+    mask_save_path = unquote(mask_path).split('.')[0] + '.png'
+    plt.imsave(mask_save_path, mask, cmap='gray')
+
+    # mask_url = fs.url(mask_save_path)
+
+    return Response({'mask_url': mask_save_path})
+
+
+
+
+
+
+
+
+
+
+
 @api_view(['POST'])
 def process_image(request):
     if request.method == 'POST' and request.FILES['image']:
@@ -51,7 +76,6 @@ def process_image(request):
         mask_np = mask.cpu().numpy()  # Convert the tensor to a numpy array
         mask_np = mask_np.astype(np.uint8)  # Ensure it's in 'uint8' format for image saving
         # mask_np = lbl_decoder(mask_np)
-        print(mask_np.shape)
         mask_filename = 'mask_' + filename.split('.')[0] + '.npy'
         mask_file_path = os.path.join(settings.MEDIA_ROOT, mask_filename)
         np.save(mask_file_path, mask_np)  # Save as .npy
