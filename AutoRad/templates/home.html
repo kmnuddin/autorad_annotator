@@ -86,7 +86,7 @@
                             </div>
                             <div>
                                 <button type="button" id="submitImage" class="btn btn-primary" onclick="uploadImage()" disabled>Submit</button>
-                                <button type="button" id="editImage" class="btn btn-secondary" onclick="annotateImage()" disabled>Edit</button>
+                                <button type="button" id="editImage" class="btn btn-secondary" onclick="overlayImage()" disabled>Edit</button>
                             </div>
                         </form>
                     </div>
@@ -276,29 +276,39 @@ function getCSRFToken() {
     }
     return null;
 }
-function annotateImage() {
-    var formData = new FormData();
-    formData.append('image_url', $('#imagePlaceholder1').attr('src'));
-    formData.append('mask_url', $('#imagePlaceholder2').attr('src'));
+function overlayImage() {
+    var canvas = document.getElementById('annotation-canvas'); // Assuming this is your canvas id
+    var ctx = canvas.getContext('2d');
 
-    $.ajax({
-        type: 'POST',
-        url: '/api/show-blended-mri/',
-        data: formData,
-        processData: false,
-        contentType: false,
-        beforeSend: function(xhr, settings) {
-            xhr.setRequestHeader("X-CSRFToken", getCSRFToken());
-        },
-        success: function(response) {
-            var urlCreator = window.URL || window.webkitURL;
-            var imageUrl = urlCreator.createObjectURL(response);
-            document.querySelector("#annotation-canvas").style.backgroundImage = 'url(' + imageUrl + ')';
-        },
-        error: function(xhr, status, error) {
-            console.error('Error processing image', error);
-        }
-    });
+    var mriImage = new Image();
+    var maskImage = new Image();
+
+    // This will ensure the mask is drawn only after the MRI image is loaded and drawn
+    mriImage.onload = function() {
+        // Set canvas size to match MRI image
+        canvas.width = mriImage.width;
+        canvas.height = mriImage.height;
+
+        // Draw the MRI image first
+        ctx.drawImage(mriImage, 0, 0);
+
+        maskImage.onload = function() {
+            // Optionally, set the global alpha for mask transparency
+            ctx.globalAlpha = 0.5; // This value can be between 0 (fully transparent) and 1 (fully opaque)
+
+            // Draw the mask image on top of the MRI image
+            ctx.drawImage(maskImage, 0, 0);
+
+            // Reset the globalAlpha to default if you're going to draw more things on the canvas later
+            ctx.globalAlpha = 0.8;
+        };
+
+        // Set the source of the mask image
+        maskImage.src = $('#imagePlaceholder2').attr('src');
+    };
+
+    // Set the source of the MRI image
+    mriImage.src = $('#imagePlaceholder1').attr('src');
 }
 
 function uploadImage() {
@@ -328,7 +338,7 @@ function uploadImage() {
                 data: { 'mask_url': maskUrl },  // Pass relevant data to the second API
                 success: function(viewMaskResponse) {
                     // Handle the response of the second API as needed
-                    console.log('Mask URL from view_mask:', viewMaskResponse.mask_url);
+                    $('#imagePlaceholder2').attr('src', viewMaskResponse.mask_url)
                 },
                 error: function() {
                     console.error('Error calling view_mask API');
@@ -347,6 +357,38 @@ function uploadImage() {
 document.getElementById('submitImage').disabled = true;
 // Initially disable edit button
 document.getElementById('editImage').disabled = true;
+
+function getCursorPosition(canvas, event) {
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    return { x: x, y: y };
+}
+
+function getColorAtPosition(canvas, x, y) {
+    const context = canvas.getContext('2d');
+    const pixel = context.getImageData(x, y, 1, 1).data;
+    return `rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
+}
+
+function selectStructure(canvas, event) {
+    const position = getCursorPosition(canvas, event);
+    const color = getColorAtPosition(canvas, position.x, position.y);
+
+    // Now you have the color, you can use it to determine if it matches
+    // one of your predefined structure colors and select it if it does.
+    console.log('Color at position:', color);
+
+    // Here you would add logic to select the structure
+    // For example, if you have a list of structures with their associated colors,
+    // you would find which structure's color matches and then select it.
+}
+
+// Add event listener to the canvas
+const canvas = document.getElementById('annotation-canvas');
+canvas.addEventListener('click', function(event) {
+    selectStructure(canvas, event);
+});
 
 </script>
 

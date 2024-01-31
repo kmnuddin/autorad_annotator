@@ -34,25 +34,20 @@ def upload_image(request):
 @api_view(['POST'])
 def view_mask(request):
     mask_path = request.data.get('mask_url')
-    full_mask_path = os.path.join(settings.MEDIA_ROOT, unquote(mask_path))
-    mask = np.load(full_mask_path)
+    filename = unquote(mask_path).split('/')[-1]
+    mask_load_path = os.path.join(settings.MEDIA_ROOT, filename)
+    mask = np.load(mask_load_path)
 
     mask = np.squeeze(np.argmax(mask, axis=1))
-    mask_save_path = unquote(mask_path).split('.')[0] + '.png'
+    mask_img_filename = filename.split('.')[0] + '.png'
+    mask_save_path = os.path.join(settings.MEDIA_ROOT, mask_img_filename)
     plt.imsave(mask_save_path, mask, cmap='gray')
 
-    # mask_url = fs.url(mask_save_path)
+    fs = FileSystemStorage()
 
-    return Response({'mask_url': mask_save_path})
+    mask_url = fs.url(mask_img_filename)
 
-
-
-
-
-
-
-
-
+    return Response({'mask_url': mask_url})
 
 
 @api_view(['POST'])
@@ -74,7 +69,7 @@ def process_image(request):
 
         # mask = torch.squeeze(torch.argmax(mask, dim=1))
         mask_np = mask.cpu().numpy()  # Convert the tensor to a numpy array
-        mask_np = mask_np.astype(np.uint8)  # Ensure it's in 'uint8' format for image saving
+        # mask_np = mask_np.astype(np.uint8)  # Ensure it's in 'uint8' format for image saving
         # mask_np = lbl_decoder(mask_np)
         mask_filename = 'mask_' + filename.split('.')[0] + '.npy'
         mask_file_path = os.path.join(settings.MEDIA_ROOT, mask_filename)
@@ -86,27 +81,7 @@ def process_image(request):
         return Response({'mask_url': mask_url})
     return Response({'error': 'No image provided'}, status=400)
 
-def blend_image_with_mask(image, mask):
-    cmap = plt.cm.get_cmap('tab20b', 5)  # Get a colormap with 5 colors
-    colors = [cmap(i) for i in range(5)]
 
-    # Convert RGB values to 8-bit for visualization
-    colors = (np.array(colors)[:, :3] * 255).astype(np.uint8)
-
-    alpha = 0.6
-
-
-    # Create a blank RGB image with the same dimensions as the original image
-    color_mask = np.zeros_like(image)
-
-    for label, color in enumerate(colors):
-        color_mask[mask == label] = color
-
-    blended = cv2.addWeighted(image, alpha, color_mask, 1 - alpha, 0)
-
-    # Ensure values are within the expected range
-    blended = np.clip(blended, 0, 255)
-    return blended / 255.0
 
 @api_view(['POST'])
 def show_blended_mri(request):
@@ -124,7 +99,6 @@ def show_blended_mri(request):
     full_mask_path = os.path.join(settings.BASE_DIR, mask_path.lstrip('/'))
 
     mask = cv2.imread(full_mask_path, cv2.IMREAD_GRAYSCALE)
-    print(image.shape, np.unique(mask))
     # Process the image and mask
     blended_image = blend_image_with_mask(image, mask)
 
