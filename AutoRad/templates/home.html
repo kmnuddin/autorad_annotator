@@ -276,40 +276,53 @@ function getCSRFToken() {
     }
     return null;
 }
+
 function overlayImage() {
-    var canvas = document.getElementById('annotation-canvas'); // Assuming this is your canvas id
+    var canvas = document.getElementById('annotation-canvas');
     var ctx = canvas.getContext('2d');
-
     var mriImage = new Image();
-    var maskImage = new Image();
+    var loadedStructures = 0;
 
-    // This will ensure the mask is drawn only after the MRI image is loaded and drawn
+    // Clear the canvas before drawing new images
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Load and draw the MRI image first
     mriImage.onload = function() {
-        // Set canvas size to match MRI image
         canvas.width = mriImage.width;
         canvas.height = mriImage.height;
-
-        // Draw the MRI image first
         ctx.drawImage(mriImage, 0, 0);
 
-        maskImage.onload = function() {
-            // Optionally, set the global alpha for mask transparency
-            ctx.globalAlpha = 0.5; // This value can be between 0 (fully transparent) and 1 (fully opaque)
+        // After the MRI image is loaded and drawn, load the structure images
+        globalMaskClassPaths.forEach(function(url, index) {
+            var structureImage = new Image();
+            structureImage.onload = function() {
+                // Set the global alpha for mask transparency
+                ctx.globalAlpha = 0.5; // Adjust as necessary for each structure
 
-            // Draw the mask image on top of the MRI image
-            ctx.drawImage(maskImage, 0, 0);
+                // Draw the structure image on top of the MRI image
+                ctx.drawImage(structureImage, 0, 0);
 
-            // Reset the globalAlpha to default if you're going to draw more things on the canvas later
-            ctx.globalAlpha = 0.8;
-        };
+                // Reset the global alpha if needed
+                ctx.globalAlpha = 1.0;
 
-        // Set the source of the mask image
-        maskImage.src = $('#imagePlaceholder2').attr('src');
+                // Keep track of loaded structures
+                loadedStructures++;
+
+                // If all structures are loaded, you can perform additional operations here
+                if (loadedStructures === globalMaskClassPaths.length) {
+                    console.log('All structures have been drawn');
+                    // Any other code you want to execute after all structures are drawn
+                }
+            };
+            structureImage.src = url; // Set the source to the structure image URL
+        });
     };
 
     // Set the source of the MRI image
     mriImage.src = $('#imagePlaceholder1').attr('src');
 }
+
+var globalMaskClassPaths = [];
 
 function uploadImage() {
     var formData = new FormData();
@@ -330,7 +343,6 @@ function uploadImage() {
         success: function(response) {
             // Extract relevant data from the response
             var maskUrl = response.mask_url;
-            console.log(maskUrl)
             // Second API call: view_mask
             $.ajax({
                 type: 'POST',
@@ -338,7 +350,8 @@ function uploadImage() {
                 data: { 'mask_url': maskUrl },  // Pass relevant data to the second API
                 success: function(viewMaskResponse) {
                     // Handle the response of the second API as needed
-                    $('#imagePlaceholder2').attr('src', viewMaskResponse.full_mask_url)
+                    $('#imagePlaceholder2').attr('src', viewMaskResponse.mask_url)
+                    globalMaskClassPaths = viewMaskResponse.mask_class_paths;
                 },
                 error: function() {
                     console.error('Error calling view_mask API');

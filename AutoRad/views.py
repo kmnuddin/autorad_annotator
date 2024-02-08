@@ -38,9 +38,6 @@ def view_mask(request):
     mask_load_path = os.path.join(settings.MEDIA_ROOT, filename)
     mask = np.load(mask_load_path)
 
-
-
-
     full_mask = np.squeeze(np.argmax(mask, axis=1))
     mask_img_filename = filename.split('.')[0] + '.png'
     mask_save_path = os.path.join(settings.MEDIA_ROOT, mask_img_filename)
@@ -54,9 +51,11 @@ def view_mask(request):
         class_fname = mask_img_filename + '_' + classes[i-1] + '.png'
         class_save_path = os.path.join(settings.MEDIA_ROOT, class_fname)
         plt.imsave(class_save_path, np.squeeze(mask)[i], cmap='gray')
+        mask_class_url = fs.url(class_fname)
+        mask_class_paths.append(mask_class_url)
 
 
-    return Response({'mask_url': full_mask_url})
+    return Response({'mask_url': full_mask_url, 'mask_class_paths': mask_class_paths})
 
 
 @api_view(['POST'])
