@@ -17,7 +17,7 @@ from django.contrib import admin
 from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path
-from AutoRad.views import home, upload_image, process_image, show_blended_mri, view_mask
+from AutoRad.views import home, upload_image, process_image, view_mask
 
 
 
@@ -26,8 +26,7 @@ urlpatterns = [
     path('', home, name='home'),
     path('upload-path/', upload_image, name='upload_image'),
     path('api/process-image/', process_image, name='process_image'),
-    path('api/view-mask/', view_mask, name='view_mask'),
-    path('api/show-blended-mri/', show_blended_mri, name='show_blended_mri')
+    path('api/view-mask/', view_mask, name='view_mask')
 ]
 
 if settings.DEBUG:

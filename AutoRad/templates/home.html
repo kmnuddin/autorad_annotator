@@ -104,9 +104,14 @@
                 </div>
 
                 <div class="row">
-                    <div class="col-md-12 text-center">
+                    <div class="col-md-6 text-center">
                         <div class="annotation-canvas">
-                            <canvas id="annotation-canvas" style="border: 1px solid #cccccc;"></canvas>
+                            <canvas id="annotation-canvas1" style="border: 1px solid #cccccc;"></canvas>
+                        </div>
+                    </div>
+                    <div class="col-md-6 text-center">
+                        <div class="annotation-canvas">
+                            <canvas id="annotation-canvas2" style="border: 1px solid #cccccc;"></canvas>
                         </div>
                     </div>
                 </div>
@@ -276,10 +281,10 @@ function getCSRFToken() {
     }
     return null;
 }
-
+var ctx;
 function overlayImage() {
-    var canvas = document.getElementById('annotation-canvas');
-    var ctx = canvas.getContext('2d');
+    var canvas = document.getElementById('annotation-canvas1');
+    ctx = canvas.getContext('2d');
     var mriImage = new Image();
     var loadedStructures = 0;
 
@@ -296,25 +301,25 @@ function overlayImage() {
         globalMaskClassPaths.forEach(function(url, index) {
             var structureImage = new Image();
             structureImage.onload = function() {
-                // Set the global alpha for mask transparency
-                ctx.globalAlpha = 0.5; // Adjust as necessary for each structure
+                ctx.globalAlpha = 0.5; // Example transparency
 
                 // Draw the structure image on top of the MRI image
                 ctx.drawImage(structureImage, 0, 0);
-
-                // Reset the global alpha if needed
                 ctx.globalAlpha = 1.0;
 
-                // Keep track of loaded structures
+                // Add the structure image data to the layers array
+                structureLayers.push({
+                    image: structureImage,
+                    index: index // Keep track of the layer's index
+                });
+
                 loadedStructures++;
 
-                // If all structures are loaded, you can perform additional operations here
                 if (loadedStructures === globalMaskClassPaths.length) {
                     console.log('All structures have been drawn');
-                    // Any other code you want to execute after all structures are drawn
                 }
             };
-            structureImage.src = url; // Set the source to the structure image URL
+            structureImage.src = url;
         });
     };
 
@@ -323,6 +328,7 @@ function overlayImage() {
 }
 
 var globalMaskClassPaths = [];
+var structureLayers = [];
 
 function uploadImage() {
     var formData = new FormData();
@@ -371,36 +377,37 @@ document.getElementById('submitImage').disabled = true;
 // Initially disable edit button
 document.getElementById('editImage').disabled = true;
 
-function getCursorPosition(canvas, event) {
-    const rect = canvas.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-    return { x: x, y: y };
+function selectStructure(event) {
+    var x = event.offsetX;
+    var y = event.offsetY;
+
+    // Check each layer to find which one is selected
+    for (var i = 0; i < structureLayers.length; i++) {
+        var layer = structureLayers[i];
+        var pixelData = ctx.getImageData(x, y, 1, 1).data;
+
+        // Check if the clicked pixel is not transparent in this layer
+        if (pixelData[3] !== 0) {
+            console.log('Structure selected: Layer ' + layer.index);
+            highlightStructure(layer.index);
+            break; // Stop checking after the first match
+        }
+    }
 }
 
-function getColorAtPosition(canvas, x, y) {
-    const context = canvas.getContext('2d');
-    const pixel = context.getImageData(x, y, 1, 1).data;
-    return `rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
+function highlightStructure(selectedIndex) {
+    // Clear the canvas and redraw everything
+    // Highlight the selected structure in some way
+    // Your logic for highlighting the selected structure goes here
 }
 
-function selectStructure(canvas, event) {
-    const position = getCursorPosition(canvas, event);
-    const color = getColorAtPosition(canvas, position.x, position.y);
 
-    // Now you have the color, you can use it to determine if it matches
-    // one of your predefined structure colors and select it if it does.
-    console.log('Color at position:', color);
 
-    // Here you would add logic to select the structure
-    // For example, if you have a list of structures with their associated colors,
-    // you would find which structure's color matches and then select it.
-}
 
 // Add event listener to the canvas
 const canvas = document.getElementById('annotation-canvas');
 canvas.addEventListener('click', function(event) {
-    selectStructure(canvas, event);
+    selectStructure(event);
 });
 
 </script>

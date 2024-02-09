@@ -4,17 +4,13 @@ from django.core.files.storage import FileSystemStorage
 from urllib.parse import unquote
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from django.core.files.base import ContentFile
 import cv2
-from PIL import Image
 import torch
 from .model import model, device
 import matplotlib.pyplot as plt
 from django.conf import settings
-from django.utils.crypto import get_random_string
-from io import BytesIO
 import os
-import base64
+
 
 def home(request):
     return render(request, 'home.html')
@@ -48,7 +44,7 @@ def view_mask(request):
     mask_class_paths = []
     classes = ["IVD", "PE", "TS", "AAP"]
     for i in range(1, mask.shape[1]):
-        class_fname = mask_img_filename + '_' + classes[i-1] + '.png'
+        class_fname = filename.split('.')[0]+ '_' + classes[i-1] + '.png'
         class_save_path = os.path.join(settings.MEDIA_ROOT, class_fname)
         plt.imsave(class_save_path, np.squeeze(mask)[i], cmap='gray')
         mask_class_url = fs.url(class_fname)
@@ -91,38 +87,6 @@ def process_image(request):
 
 
 
-@api_view(['POST'])
-def show_blended_mri(request):
-    image_data = request.data.get('image_url')
-    mask_path = unquote(request.data.get('mask_url'))
 
-    if not image_data or not mask_path:
-        return Response({'error': 'Image data and/or mask path not provided'}, status=400)
-
-    # Decode the base64 image data
-    image_base64 = image_data.split(',')[1]
-    image_bytes = base64.b64decode(image_base64)
-    image = np.array(Image.open(BytesIO(image_bytes)))
-    # Read the mask file from the server
-    full_mask_path = os.path.join(settings.BASE_DIR, mask_path.lstrip('/'))
-
-    mask = cv2.imread(full_mask_path, cv2.IMREAD_GRAYSCALE)
-    # Process the image and mask
-    blended_image = blend_image_with_mask(image, mask)
-
-    # Convert the blended image to an in-memory file
-    pil_img = Image.fromarray((blended_image * 255).astype(np.uint8))
-    image_io = BytesIO()
-    pil_img.save(image_io, format='PNG')
-    image_io.seek(0)
-
-    # Save the in-memory file using Django's file storage system
-    unique_id = get_random_string(length=10)
-    filename = 'blended_{}_{}'.format(unique_id, os.path.basename(mask_path))
-    fs = FileSystemStorage()
-    image_path = fs.save(filename, ContentFile(image_io.read()))
-    image_url = fs.url(image_path)
-
-    return Response({'image_url': image_url})
 
 

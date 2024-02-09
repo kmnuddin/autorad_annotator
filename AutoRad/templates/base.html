@@ -87,26 +87,26 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/4.3.1/fabric.min.js"></script>
     <script>
-    // Initialize Fabric.js Canvas
-        var canvas = new fabric.Canvas('annotation-canvas', {
-            isDrawingMode: true,
-            width: 620, // Match the width set in the CSS
-            height: 620 // Match the height set in the CSS
-        });
-
-        // Set drawing parameters (if needed)
-        canvas.freeDrawingBrush.width = 5; // Brush width
-        canvas.freeDrawingBrush.color = "#ff0000"; // Brush color
-
-        // Example function to switch to drawing mode
-        function enableDrawingMode() {
-            canvas.isDrawingMode = !canvas.isDrawingMode;
-        }
-
-        // Example function to clear the canvas
-        function clearCanvas() {
-            canvas.clear();
-        }
+    {#// Initialize Fabric.js Canvas#}
+    {#    var canvas = new fabric.Canvas('annotation-canvas', {#}
+    {#        isDrawingMode: true,#}
+    {#        width: 620, // Match the width set in the CSS#}
+    {#        height: 620 // Match the height set in the CSS#}
+    {#    });#}
+    {##}
+    {#    // Set drawing parameters (if needed)#}
+    {#    canvas.freeDrawingBrush.width = 5; // Brush width#}
+    {#    canvas.freeDrawingBrush.color = "#ff0000"; // Brush color#}
+    {##}
+    {#    // Example function to switch to drawing mode#}
+    {#    function enableDrawingMode() {#}
+    {#        canvas.isDrawingMode = !canvas.isDrawingMode;#}
+    {#    }#}
+    {##}
+    {#    // Example function to clear the canvas#}
+    {#    function clearCanvas() {#}
+    {#        canvas.clear();#}
+    {#    }#}
 
         // Add more functionalities as needed
     </script>
