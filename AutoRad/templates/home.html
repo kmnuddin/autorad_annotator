@@ -86,32 +86,39 @@
                             </div>
                             <div>
                                 <button type="button" id="submitImage" class="btn btn-primary" onclick="uploadImage()" disabled>Submit</button>
-                                <button type="button" id="editImage" class="btn btn-secondary" onclick="overlayImage()" disabled>Edit</button>
+                                <button type="button" id="editImage" data-toggle="modal" data-target=".bd-example-modal-lg" class="btn btn-secondary" onclick="overlayImage()" disabled>Edit</button>
                             </div>
                         </form>
                     </div>
                 </div>
 
-
-                <div class="row">
-                    <div class="col-md-12 text-center">
-                        <div class="annotation-controls">
-                            <button type="button" class="btn btn-primary" onclick="enableDrawingMode()">Toggle Drawing Mode</button>
-                            <button type="button" class="btn btn-primary" onclick="clearCanvas()">Clear</button>
-                            <!-- Add more controls as needed -->
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row">
-                    <div class="col-md-6 text-center">
-                        <div class="annotation-canvas">
-                            <canvas id="annotation-canvas1" style="border: 1px solid #cccccc;"></canvas>
-                        </div>
-                    </div>
-                    <div class="col-md-6 text-center">
-                        <div class="annotation-canvas">
-                            <canvas id="annotation-canvas2" style="border: 1px solid #cccccc;"></canvas>
+                <div class="modal fade bd-example-modal-lg" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+                    <div class="modal-dialog modal-lg" role="document">
+                        <div class="modal-content">
+                          <div class="modal-header">
+                            <h5 class="modal-title" id="exampleModalLabel">New message</h5>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                          </div>
+                          <div class="modal-body">
+                              <div class="row">
+                                <div class="col-md-6 text-center">
+                                    <div class="annotation-canvas">
+                                        <canvas id="annotation-canvas1" style="border: 1px solid #cccccc;"></canvas>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 text-center">
+                                    <div class="annotation-canvas">
+                                        <canvas id="annotation-canvas2" style="border: 1px solid #cccccc;"></canvas>
+                                    </div>
+                                </div>
+                              </div>
+                          </div>
+                          <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                            <button type="button" class="btn btn-primary">Send message</button>
+                          </div>
                         </div>
                     </div>
                 </div>
@@ -239,6 +246,11 @@
     </div>
 
 <script>
+
+var globalMaskClassPaths = [];
+var structureLayers = [];
+var mask_path;
+
 function handleImageUpload() {
     var imageInput = document.getElementById('imageUpload');
     var submitButton = document.getElementById('submitImage');
@@ -281,54 +293,38 @@ function getCSRFToken() {
     }
     return null;
 }
-var ctx;
-function overlayImage() {
-    var canvas = document.getElementById('annotation-canvas1');
-    ctx = canvas.getContext('2d');
-    var mriImage = new Image();
-    var loadedStructures = 0;
 
+function overlayImage() {
+    var canvas1 = document.getElementById('annotation-canvas1');
+    var canvas2 = document.getElementById('annotation-canvas2');
+    var ctx1 = canvas1.getContext('2d');
+    var ctx2 = canvas2.getContext('2d');
+    var mriImage = new Image();
+    var mask = new Image();
+    var loadedStructures = 0;
     // Clear the canvas before drawing new images
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx1.clearRect(0, 0, canvas1.width, canvas1.height);
+    ctx2.clearRect(0, 0, canvas2.width, canvas2.height);
 
     // Load and draw the MRI image first
     mriImage.onload = function() {
-        canvas.width = mriImage.width;
-        canvas.height = mriImage.height;
-        ctx.drawImage(mriImage, 0, 0);
+        canvas1.width = mriImage.width;
+        canvas1.height = mriImage.height;
+        canvas2.width = mriImage.width;
+        canvas2.height = mriImage.height;
 
-        // After the MRI image is loaded and drawn, load the structure images
-        globalMaskClassPaths.forEach(function(url, index) {
-            var structureImage = new Image();
-            structureImage.onload = function() {
-                ctx.globalAlpha = 0.5; // Example transparency
+        ctx1.drawImage(mriImage, 0, 0);
+        ctx2.drawImage(mask, 0, 0);
 
-                // Draw the structure image on top of the MRI image
-                ctx.drawImage(structureImage, 0, 0);
-                ctx.globalAlpha = 1.0;
 
-                // Add the structure image data to the layers array
-                structureLayers.push({
-                    image: structureImage,
-                    index: index // Keep track of the layer's index
-                });
-
-                loadedStructures++;
-
-                if (loadedStructures === globalMaskClassPaths.length) {
-                    console.log('All structures have been drawn');
-                }
-            };
-            structureImage.src = url;
-        });
     };
 
     // Set the source of the MRI image
     mriImage.src = $('#imagePlaceholder1').attr('src');
+    mask.src = mask_path;
 }
 
-var globalMaskClassPaths = [];
-var structureLayers = [];
+
 
 function uploadImage() {
     var formData = new FormData();
@@ -358,6 +354,7 @@ function uploadImage() {
                     // Handle the response of the second API as needed
                     $('#imagePlaceholder2').attr('src', viewMaskResponse.mask_url)
                     globalMaskClassPaths = viewMaskResponse.mask_class_paths;
+                    mask_path = viewMaskResponse.mask_url;
                 },
                 error: function() {
                     console.error('Error calling view_mask API');
@@ -402,13 +399,6 @@ function highlightStructure(selectedIndex) {
 }
 
 
-
-
-// Add event listener to the canvas
-const canvas = document.getElementById('annotation-canvas');
-canvas.addEventListener('click', function(event) {
-    selectStructure(event);
-});
 
 </script>
 
