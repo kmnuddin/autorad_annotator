@@ -37,7 +37,7 @@ def view_mask(request):
     full_mask = np.squeeze(np.argmax(mask, axis=1))
     mask_img_filename = filename.split('.')[0] + '.png'
     mask_save_path = os.path.join(settings.MEDIA_ROOT, mask_img_filename)
-    plt.imsave(mask_save_path, full_mask, cmap='Accent')
+    plt.imsave(mask_save_path, full_mask, cmap='gray')
     fs = FileSystemStorage()
 
     full_mask_url = fs.url(mask_img_filename)

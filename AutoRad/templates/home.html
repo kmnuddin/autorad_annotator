@@ -294,6 +294,64 @@ function getCSRFToken() {
     return null;
 }
 
+document.addEventListener('DOMContentLoaded', function () {
+    var canvas2 = document.getElementById('annotation-canvas2');
+    var ctx2 = canvas2.getContext('2d');
+
+    // Define the color information for the structures
+    var structureColors = {
+        IVD: [64, 64, 64, 255], // Note: Alpha is out of 255 here
+        PE: [128, 128, 128, 255],
+        TS: [192, 192, 192, 255],
+        AAP: [255, 255, 255, 255]
+    };
+
+    // Function to identify structure based on the clicked color
+    function identifyStructure(pixel) {
+        for (var structure in structureColors) {
+            if (structureColors.hasOwnProperty(structure)) {
+                var color = structureColors[structure];
+                if (pixel[0] === color[0] && pixel[1] === color[1] && pixel[2] === color[2] && pixel[3] === color[3]) {
+                    return structure;
+                }
+            }
+        }
+        return "Unknown Structure";
+    }
+
+    canvas2.addEventListener('click', function(event) {
+        var rect = canvas2.getBoundingClientRect();
+        var x = event.clientX - rect.left;
+        var y = event.clientY - rect.top;
+        var pixel = ctx2.getImageData(x, y, 1, 1).data;
+
+        var structureIdentified = identifyStructure(pixel);
+        console.log('Clicked Structure:', structureIdentified);
+
+        // Highlighting the clicked structure
+        // Note: This is a conceptual approach. Actual implementation will vary
+        // based on how your structures are defined and drawn.
+        if (structureIdentified !== "Unknown Structure") {
+            // Example: Change color of the identified structure
+            // This requires redrawing the structure with a new color
+            // or overlaying a highlight effect if the structures can be individually targeted.
+            highlightStructure(structureIdentified, x, y);
+        }
+    });
+
+    function highlightStructure(structure, x, y) {
+        // Conceptual placeholder function
+        // Implement based on your application's logic for redrawing or modifying structures
+        console.log(`Highlighting ${structure} at (${x}, ${y})`);
+
+        // Example: Redrawing a rectangle to represent highlighting (not directly applicable)
+        // ctx2.fillStyle = 'rgba(255, 0, 0, 0.5)'; // Semi-transparent red for highlight
+        // ctx2.fillRect(x - 50, y - 50, 100, 100); // Example dimensions
+    }
+});
+
+
+
 function overlayImage() {
     var canvas1 = document.getElementById('annotation-canvas1');
     var canvas2 = document.getElementById('annotation-canvas2');
@@ -301,7 +359,6 @@ function overlayImage() {
     var ctx2 = canvas2.getContext('2d');
     var mriImage = new Image();
     var mask = new Image();
-    var loadedStructures = 0;
     // Clear the canvas before drawing new images
     ctx1.clearRect(0, 0, canvas1.width, canvas1.height);
     ctx2.clearRect(0, 0, canvas2.width, canvas2.height);
@@ -314,7 +371,12 @@ function overlayImage() {
         canvas2.height = mriImage.height;
 
         ctx1.drawImage(mriImage, 0, 0);
+
+        ctx1.globalAlpha = 0.5;
+        ctx1.drawImage(mask, 0, 0);
+        ctx1.globalAlpha = 1.0;
         ctx2.drawImage(mask, 0, 0);
+
 
 
     };
