@@ -295,6 +295,7 @@ function getCSRFToken() {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
+    var canvas1 = document.getElementById('annotation-canvas1');
     var canvas2 = document.getElementById('annotation-canvas2');
     var ctx2 = canvas2.getContext('2d');
 
@@ -319,12 +320,12 @@ document.addEventListener('DOMContentLoaded', function () {
         return "Unknown Structure";
     }
 
-    canvas2.addEventListener('click', function(event) {
-        var rect = canvas2.getBoundingClientRect();
+    canvas1.addEventListener('click', function(event) {
+        var rect = canvas1.getBoundingClientRect();
         var x = event.clientX - rect.left;
         var y = event.clientY - rect.top;
         var pixel = ctx2.getImageData(x, y, 1, 1).data;
-
+        console.log('Position: ', x, y);
         var structureIdentified = identifyStructure(pixel);
         console.log('Clicked Structure:', structureIdentified);
 
