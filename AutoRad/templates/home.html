@@ -294,10 +294,16 @@ function getCSRFToken() {
     return null;
 }
 
-document.addEventListener('DOMContentLoaded', function () {
+function processCanvasImage() {
     var canvas1 = document.getElementById('annotation-canvas1');
     var canvas2 = document.getElementById('annotation-canvas2');
+    var ctx1 = canvas1.getContext('2d');
     var ctx2 = canvas2.getContext('2d');
+
+    console.log(ctx2);
+
+
+    var imageData = ctx2.getImageData(0, 0, canvas2.width, canvas2.height);
 
     // Define the color information for the structures
     var structureColors = {
@@ -320,36 +326,74 @@ document.addEventListener('DOMContentLoaded', function () {
         return "Unknown Structure";
     }
 
-    canvas1.addEventListener('click', function(event) {
-        var rect = canvas1.getBoundingClientRect();
-        var x = event.clientX - rect.left;
-        var y = event.clientY - rect.top;
-        var pixel = ctx2.getImageData(x, y, 1, 1).data;
-        console.log('Position: ', x, y);
-        var structureIdentified = identifyStructure(pixel);
-        console.log('Clicked Structure:', structureIdentified);
+    function findMatchingPixels(imageData, targetColor) {
+        let pixels = imageData.data;
+        let width = imageData.width;
+        let matchingPixels = [];
 
-        // Highlighting the clicked structure
-        // Note: This is a conceptual approach. Actual implementation will vary
-        // based on how your structures are defined and drawn.
-        if (structureIdentified !== "Unknown Structure") {
-            // Example: Change color of the identified structure
-            // This requires redrawing the structure with a new color
-            // or overlaying a highlight effect if the structures can be individually targeted.
-            highlightStructure(structureIdentified, x, y);
+        for (let i = 0; i < pixels.length; i += 4) {
+            let r = pixels[i];
+            let g = pixels[i + 1];
+            let b = pixels[i + 2];
+            let a = pixels[i + 3];
+
+            // Check if the current pixel matches the target color
+            if (r === targetColor[0] && g === targetColor[1] && b === targetColor[2] && a === targetColor[3]) {
+                let x = (i / 4) % width;
+                let y = Math.floor((i / 4) / width);
+                matchingPixels.push({ x, y });
+            }
         }
+
+        return matchingPixels;
+    }
+
+    function computeBoundingBox(points) {
+        let minX = Infinity;
+        let maxX = -Infinity;
+        let minY = Infinity;
+        let maxY = -Infinity;
+
+        points.forEach(point => {
+            if (point.x < minX) minX = point.x;
+            if (point.x > maxX) maxX = point.x;
+            if (point.y < minY) minY = point.y;
+            if (point.y > maxY) maxY = point.y;
+        });
+
+        return {
+            topLeft: { x: minX, y: minY },
+            bottomRight: { x: maxX, y: maxY }
+        };
+    }
+
+
+    Object.keys(structureColors).forEach(function (structure) {
+        var color = structureColors[structure];
+        var matchingPixels = findMatchingPixels(imageData, color);
+        var boundingBox = computeBoundingBox(matchingPixels);
+
+        console.log(matchingPixels);
+
+        // If you want to draw a bounding box for each structure
+        var rect = new fabric.Rect({
+            left: boundingBox.topLeft.x,
+            top: boundingBox.topLeft.y,
+            width: boundingBox.bottomRight.x - boundingBox.topLeft.x,
+            height: boundingBox.bottomRight.y - boundingBox.topLeft.y,
+            fill: 'rgba(0,0,0,0)', // transparent fill
+            stroke: 'red',
+            strokeWidth: 2,
+            selectable: true // If you don't want it to be selectable
+        });
+
+        // Add the rectangle to the fabric canvas
+        canvas2.add(rect);
     });
 
-    function highlightStructure(structure, x, y) {
-        // Conceptual placeholder function
-        // Implement based on your application's logic for redrawing or modifying structures
-        console.log(`Highlighting ${structure} at (${x}, ${y})`);
+    canvas2.renderAll();
 
-        // Example: Redrawing a rectangle to represent highlighting (not directly applicable)
-        // ctx2.fillStyle = 'rgba(255, 0, 0, 0.5)'; // Semi-transparent red for highlight
-        // ctx2.fillRect(x - 50, y - 50, 100, 100); // Example dimensions
-    }
-});
+}
 
 
 
@@ -385,6 +429,8 @@ function overlayImage() {
     // Set the source of the MRI image
     mriImage.src = $('#imagePlaceholder1').attr('src');
     mask.src = mask_path;
+
+    processCanvasImage();
 }
 
 
