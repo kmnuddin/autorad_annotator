@@ -294,106 +294,7 @@ function getCSRFToken() {
     return null;
 }
 
-function processCanvasImage() {
-    var canvas1 = document.getElementById('annotation-canvas1');
-    var canvas2 = document.getElementById('annotation-canvas2');
-    var ctx1 = canvas1.getContext('2d');
-    var ctx2 = canvas2.getContext('2d');
 
-    console.log(ctx2);
-
-
-    var imageData = ctx2.getImageData(0, 0, canvas2.width, canvas2.height);
-
-    // Define the color information for the structures
-    var structureColors = {
-        IVD: [64, 64, 64, 255], // Note: Alpha is out of 255 here
-        PE: [128, 128, 128, 255],
-        TS: [192, 192, 192, 255],
-        AAP: [255, 255, 255, 255]
-    };
-
-    // Function to identify structure based on the clicked color
-    function identifyStructure(pixel) {
-        for (var structure in structureColors) {
-            if (structureColors.hasOwnProperty(structure)) {
-                var color = structureColors[structure];
-                if (pixel[0] === color[0] && pixel[1] === color[1] && pixel[2] === color[2] && pixel[3] === color[3]) {
-                    return structure;
-                }
-            }
-        }
-        return "Unknown Structure";
-    }
-
-    function findMatchingPixels(imageData, targetColor) {
-        let pixels = imageData.data;
-        let width = imageData.width;
-        let matchingPixels = [];
-
-        for (let i = 0; i < pixels.length; i += 4) {
-            let r = pixels[i];
-            let g = pixels[i + 1];
-            let b = pixels[i + 2];
-            let a = pixels[i + 3];
-
-            // Check if the current pixel matches the target color
-            if (r === targetColor[0] && g === targetColor[1] && b === targetColor[2] && a === targetColor[3]) {
-                let x = (i / 4) % width;
-                let y = Math.floor((i / 4) / width);
-                matchingPixels.push({ x, y });
-            }
-        }
-
-        return matchingPixels;
-    }
-
-    function computeBoundingBox(points) {
-        let minX = Infinity;
-        let maxX = -Infinity;
-        let minY = Infinity;
-        let maxY = -Infinity;
-
-        points.forEach(point => {
-            if (point.x < minX) minX = point.x;
-            if (point.x > maxX) maxX = point.x;
-            if (point.y < minY) minY = point.y;
-            if (point.y > maxY) maxY = point.y;
-        });
-
-        return {
-            topLeft: { x: minX, y: minY },
-            bottomRight: { x: maxX, y: maxY }
-        };
-    }
-
-
-    Object.keys(structureColors).forEach(function (structure) {
-        var color = structureColors[structure];
-        var matchingPixels = findMatchingPixels(imageData, color);
-        var boundingBox = computeBoundingBox(matchingPixels);
-
-        console.log(matchingPixels);
-
-        // If you want to draw a bounding box for each structure
-        var rect = new fabric.Rect({
-            left: boundingBox.topLeft.x,
-            top: boundingBox.topLeft.y,
-            width: boundingBox.bottomRight.x - boundingBox.topLeft.x,
-            height: boundingBox.bottomRight.y - boundingBox.topLeft.y,
-            fill: 'rgba(0,0,0,0)', // transparent fill
-            stroke: 'red',
-            strokeWidth: 2,
-            selectable: true // If you don't want it to be selectable
-        });
-
-        // Add the rectangle to the fabric canvas
-        canvas2.add(rect);
-    });
-
-    canvas2.renderAll();
-
-}
 
 
 
@@ -431,6 +332,142 @@ function overlayImage() {
     mask.src = mask_path;
 
     processCanvasImage();
+}
+
+function processCanvasImage() {
+
+    function printUniqueColors(imageData) {
+        let uniqueColors = new Set(); // Use a Set to store unique colors
+
+        let pixels = imageData.data; // The pixel data array
+
+        // Iterate over each pixel
+        for (let i = 0; i < pixels.length; i += 4) {
+            // Construct a string representing the color in the format "r,g,b,a"
+            let color = `${pixels[i]},${pixels[i + 1]},${pixels[i + 2]},${pixels[i + 3]}`;
+
+            // Add the color string to the Set
+            uniqueColors.add(color);
+        }
+
+        // Print each unique color
+        uniqueColors.forEach(color => {
+            console.log(color);
+        });
+
+        console.log(`Total unique colors: ${uniqueColors.size}`);
+    }
+    var canvas1 = document.getElementById('annotation-canvas1');
+    var canvas2 = document.getElementById('annotation-canvas2');
+    var ctx1 = canvas1.getContext('2d');
+    var ctx2 = canvas2.getContext('2d');
+
+    var imageData = ctx2.getImageData(0, 0, 320, 320);
+    printUniqueColors(imageData);
+
+    // Define the color information for the structures
+    var structureColors = {
+        IVD: [64, 64, 64, 255], // Note: Alpha is out of 255 here
+        PE: [128, 128, 128, 255],
+        TS: [192, 192, 192, 255],
+        AAP: [255, 255, 255, 255]
+    };
+
+    // Function to identify structure based on the clicked color
+    function identifyStructure(pixel) {
+        for (var structure in structureColors) {
+            if (structureColors.hasOwnProperty(structure)) {
+                var color = structureColors[structure];
+                if (pixel[0] === color[0] && pixel[1] === color[1] && pixel[2] === color[2] && pixel[3] === color[3]) {
+                    return structure;
+                }
+            }
+        }
+        return "Unknown Structure";
+    }
+
+    function findMatchingPixels(imageData, targetColor) {
+        let pixels = imageData.data;
+        let width = imageData.width;
+        let matchingPixels = [];
+        console.log(pixels.length);
+        for (let i = 0; i < pixels.length; i += 4) {
+            let r = pixels[i];
+            let g = pixels[i + 1];
+            let b = pixels[i + 2];
+            let a = pixels[i + 3];
+
+            // Check if the current pixel matches the target color
+            if (r === targetColor[0] && g === targetColor[1] && b === targetColor[2] && a === targetColor[3]) {
+                let x = (i / 4) % width;
+                let y = Math.floor((i / 4) / width);
+                matchingPixels.push({ x, y });
+            }
+        }
+
+        return matchingPixels;
+    }
+
+    function computeBoundingBox(points) {
+        let minX = Infinity;
+        let maxX = -Infinity;
+        let minY = Infinity;
+        let maxY = -Infinity;
+
+        points.forEach(point => {
+            if (point.x < minX) minX = point.x;
+            if (point.x > maxX) maxX = point.x;
+            if (point.y < minY) minY = point.y;
+            if (point.y > maxY) maxY = point.y;
+        });
+
+        return {
+            topLeft: { x: minX, y: minY },
+            bottomRight: { x: maxX, y: maxY }
+        };
+    }
+
+    function getColorInfoAtClick(x, y) {
+        var ctx = canvas2.getContext('2d');
+        var pixel = ctx.getImageData(x, y, 1, 1).data; // Get pixel data at click location
+        var color = `rgba(${pixel[0]}, ${pixel[1]}, ${pixel[2]}, ${pixel[3] / 255})`; // Construct CSS color value
+        console.log(color); // Log the color to the console
+
+        // Optionally, identify the structure based on color
+        var structure = identifyStructure(pixel);
+        console.log('Clicked structure:', x, y, structure);
+    }
+
+    canvas2.addEventListener('click', function(event) {
+        var x = event.offsetX;
+        var y = event.offsetY;
+        getColorInfoAtClick(x, y);
+    });
+
+
+    Object.keys(structureColors).forEach(function (structure) {
+        var color = structureColors[structure];
+        var matchingPixels = findMatchingPixels(imageData, color);
+        var boundingBox = computeBoundingBox(matchingPixels);
+
+        // If you want to draw a bounding box for each structure
+        var rect = new fabric.Rect({
+            left: boundingBox.topLeft.x,
+            top: boundingBox.topLeft.y,
+            width: boundingBox.bottomRight.x - boundingBox.topLeft.x,
+            height: boundingBox.bottomRight.y - boundingBox.topLeft.y,
+            fill: 'rgba(0,255,0,100)', // transparent fill
+            stroke: 'red',
+            strokeWidth: 2,
+            selectable: true // If you don't want it to be selectable
+        });
+
+        // Add the rectangle to the fabric canvas
+        canvas2.add(rect);
+    });
+
+    canvas2.renderAll();
+
 }
 
 
