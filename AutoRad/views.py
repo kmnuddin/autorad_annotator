@@ -53,6 +53,14 @@ def view_mask(request):
 
     return Response({'mask_url': full_mask_url, 'mask_class_paths': mask_class_paths})
 
+@api_view(['POST'])
+def get_control_points(request):
+    mask_path = request.data.get('mask_path')
+    mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+    cnts, hier = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+    return Response({'cnt': cnts})
+
 
 @api_view(['POST'])
 def process_image(request):

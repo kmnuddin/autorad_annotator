@@ -86,7 +86,7 @@
                             </div>
                             <div>
                                 <button type="button" id="submitImage" class="btn btn-primary" onclick="uploadImage()" disabled>Submit</button>
-                                <button type="button" id="editImage" data-toggle="modal" data-target=".bd-example-modal-lg" class="btn btn-secondary" onclick="overlayImage()" disabled>Edit</button>
+                                <button type="button" id="editImage" data-toggle="modal" data-target=".bd-example-modal-lg" class="btn btn-secondary" onclick="editMask()" disabled>Edit</button>
                             </div>
                         </form>
                     </div>
@@ -294,7 +294,9 @@ function getCSRFToken() {
     return null;
 }
 
+function editMask(){
 
+}
 
 
 
@@ -336,34 +338,12 @@ function overlayImage() {
 
 function processCanvasImage() {
 
-    function printUniqueColors(imageData) {
-        let uniqueColors = new Set(); // Use a Set to store unique colors
-
-        let pixels = imageData.data; // The pixel data array
-
-        // Iterate over each pixel
-        for (let i = 0; i < pixels.length; i += 4) {
-            // Construct a string representing the color in the format "r,g,b,a"
-            let color = `${pixels[i]},${pixels[i + 1]},${pixels[i + 2]},${pixels[i + 3]}`;
-
-            // Add the color string to the Set
-            uniqueColors.add(color);
-        }
-
-        // Print each unique color
-        uniqueColors.forEach(color => {
-            console.log(color);
-        });
-
-        console.log(`Total unique colors: ${uniqueColors.size}`);
-    }
     var canvas1 = document.getElementById('annotation-canvas1');
     var canvas2 = document.getElementById('annotation-canvas2');
     var ctx1 = canvas1.getContext('2d');
     var ctx2 = canvas2.getContext('2d');
 
-    var imageData = ctx2.getImageData(0, 0, 320, 320);
-    printUniqueColors(imageData);
+    var imageData = ctx2.getImageData(150, 210, 1, 1);
 
     // Define the color information for the structures
     var structureColors = {
@@ -390,7 +370,7 @@ function processCanvasImage() {
         let pixels = imageData.data;
         let width = imageData.width;
         let matchingPixels = [];
-        console.log(pixels.length);
+
         for (let i = 0; i < pixels.length; i += 4) {
             let r = pixels[i];
             let g = pixels[i + 1];
@@ -404,7 +384,7 @@ function processCanvasImage() {
                 matchingPixels.push({ x, y });
             }
         }
-
+        console.log(matchingPixels.length);
         return matchingPixels;
     }
 
@@ -431,7 +411,6 @@ function processCanvasImage() {
         var ctx = canvas2.getContext('2d');
         var pixel = ctx.getImageData(x, y, 1, 1).data; // Get pixel data at click location
         var color = `rgba(${pixel[0]}, ${pixel[1]}, ${pixel[2]}, ${pixel[3] / 255})`; // Construct CSS color value
-        console.log(color); // Log the color to the console
 
         // Optionally, identify the structure based on color
         var structure = identifyStructure(pixel);
