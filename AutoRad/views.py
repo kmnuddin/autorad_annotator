@@ -56,10 +56,22 @@ def view_mask(request):
 @api_view(['POST'])
 def get_control_points(request):
     mask_path = request.data.get('mask_path')
-    mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
-    cnts, hier = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    filename = unquote(mask_path).split('/')[-1]
+    mask_paths = []
+    classes = ["IVD", "PE", "TS", "AAP"]
+    structure_cnt_points = {}
+    for cls in classes:
+        filename_cls = filename + '_' + cls + '.png'
+        mask_cls_path = os.path.join(settings.MEDIA_ROOT, filename_cls)
 
-    return Response({'cnt': cnts})
+        mask = cv2.imread(mask_cls_path, cv2.IMREAD_GRAYSCALE)
+        cnts, hier = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        cnts = sorted(cnts, key=cv2.contourArea)
+        cnts = np.vstack([cnt[:, 0, :] for cnt in cnts if cnt.shape[0] > 2])
+        structure_cnt_points[cls] = cnts
+
+
+    return Response({'cls_cnt': structure_cnt_points})
 
 
 @api_view(['POST'])
