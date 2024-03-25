@@ -4,6 +4,7 @@ from django.core.files.storage import FileSystemStorage
 from urllib.parse import unquote
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from django.http import JsonResponse
 import cv2
 import torch
 from .model import model, device
@@ -55,8 +56,9 @@ def view_mask(request):
 
 @api_view(['POST'])
 def get_control_points(request):
-    mask_path = request.data.get('mask_path')
+    mask_path = request.data.get('mask_url')
     filename = unquote(mask_path).split('/')[-1]
+    filename = filename.split('.')[0]
     mask_paths = []
     classes = ["IVD", "PE", "TS", "AAP"]
     structure_cnt_points = {}
@@ -67,11 +69,10 @@ def get_control_points(request):
         mask = cv2.imread(mask_cls_path, cv2.IMREAD_GRAYSCALE)
         cnts, hier = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         cnts = sorted(cnts, key=cv2.contourArea)
-        cnts = np.vstack([cnt[:, 0, :] for cnt in cnts if cnt.shape[0] > 2])
-        structure_cnt_points[cls] = cnts
+        structure_cnt_points[cls] = [cnt.tolist() for cnt in cnts]
 
 
-    return Response({'cls_cnt': structure_cnt_points})
+    return JsonResponse({'cls_cnt': structure_cnt_points})
 
 
 @api_view(['POST'])
