@@ -316,28 +316,29 @@ function editMask() {
         },
         success: function (response) {
            var contours = response.cls_cnt;
-
            Object.keys(contours).forEach(function (cls){
                contours[cls].forEach(function (contour){
-                   var points = contour.map(function (point){
+                   var points = contour.map(function (pointWrapper){
+                       var point = pointWrapper[0];
                        return {x: point[0], y: point[1]};
                    });
-
+                   console.log(points);
                    var polygon = new fabric.Polygon(points, {
                        stroke: 'red',
                        strokeWidth: 2,
-                       fill: 'rgba(0,0,0,0)',
+                       fill: 'rgba(0,255,0,120)',
                        selectable: false,
                        objectCaching: false,
                        transparentCorners: false,
                        cornerColor: 'blue',
 
                    });
+                   canvas.add(polygon);
 
                });
            });
 
-
+            canvas.renderAll();
         }
 
     });
