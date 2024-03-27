@@ -300,9 +300,20 @@ function getCSRFToken() {
 
 function editMask() {
     var mask_path = document.getElementById('imagePlaceholder2').src;
+    var mri_path = document.getElementById('imagePlaceholder1').src;
     var data = JSON.stringify({'mask_url': mask_path});
     var csrftoken = getCSRFToken();
     var canvas = this.__canvas = new fabric.Canvas('c');
+    canvas.width = 320;
+    canvas.height = 320;
+    // Set the MRI image as the background of the canvas
+    fabric.Image.fromURL(mri_path, function(img) {
+        // Set the image as the background
+        canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
+            scaleX: canvas.width / img.width,
+            scaleY: canvas.height / img.height
+        });
+    });
 
     $.ajax({
         type: 'POST',
@@ -322,12 +333,10 @@ function editMask() {
                        var point = pointWrapper[0];
                        return {x: point[0], y: point[1]};
                    });
-                   console.log(points);
                    var polygon = new fabric.Polygon(points, {
                        stroke: 'red',
-                       strokeWidth: 2,
+                       strokeWidth: 1,
                        fill: 'rgba(0,255,0,120)',
-                       selectable: false,
                        objectCaching: false,
                        transparentCorners: false,
                        cornerColor: 'blue',
