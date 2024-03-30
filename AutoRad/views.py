@@ -67,6 +67,7 @@ def get_control_points(request):
         mask_cls_path = os.path.join(settings.MEDIA_ROOT, filename_cls)
 
         mask = cv2.imread(mask_cls_path, cv2.IMREAD_GRAYSCALE)
+        mask = cv2.resize(mask, (500, 500))
         cnts, hier = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         cnts = sorted(cnts, key=cv2.contourArea)
         structure_cnt_points[cls] = [cnt.tolist() for cnt in cnts]

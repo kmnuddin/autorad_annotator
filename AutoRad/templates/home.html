@@ -93,39 +93,11 @@
                 </div>
 
                 <div class="row">
-                    <canvas id="c" width="500" height="400" style="border:1px solid #ccc"></canvas>
+                    <div class="col-md-12 canvas-container">
+                        <canvas id="c" width="500" height="500" style="border:1px solid #ccc;"></canvas>
+                    </div>
                 </div>
 
-{#                <div class="modal fade bd-example-modal-lg" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">#}
-{#                    <div class="modal-dialog modal-lg" role="document">#}
-{#                        <div class="modal-content">#}
-{#                          <div class="modal-header">#}
-{#                            <h5 class="modal-title" id="exampleModalLabel">New message</h5>#}
-{#                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">#}
-{#                                <span aria-hidden="true">&times;</span>#}
-{#                            </button>#}
-{#                          </div>#}
-{#                          <div class="modal-body">#}
-{#                              <div class="row">#}
-{#                                <div class="col-md-6 text-center">#}
-{#                                    <div class="annotation-canvas">#}
-{#                                        <canvas id="annotation-canvas1" style="border: 1px solid #cccccc;"></canvas>#}
-{#                                    </div>#}
-{#                                </div>#}
-{#                                <div class="col-md-6 text-center">#}
-{#                                    <div class="annotation-canvas">#}
-{#                                        <canvas id="annotation-canvas2" style="border: 1px solid #cccccc;"></canvas>#}
-{#                                    </div>#}
-{#                                </div>#}
-{#                              </div>#}
-{#                          </div>#}
-{#                          <div class="modal-footer">#}
-{#                            <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>#}
-{#                            <button type="button" class="btn btn-primary">Send message</button>#}
-{#                          </div>#}
-{#                        </div>#}
-{#                    </div>#}
-{#                </div>#}
 
             </div>
 
@@ -304,8 +276,13 @@ function editMask() {
     var data = JSON.stringify({'mask_url': mask_path});
     var csrftoken = getCSRFToken();
     var canvas = this.__canvas = new fabric.Canvas('c');
-    canvas.width = 320;
-    canvas.height = 320;
+
+    var structureColors = {
+        IVD: 'rgba(64, 64, 64, 0.5)', // Note: Alpha is out of 255 here
+        PE: 'rgba(128, 128, 128, 0.5)',
+        TS: 'rgba(192, 192, 192, 0.5)',
+        AAP: 'rgba(255, 255, 255, 0.5)'
+    };
     // Set the MRI image as the background of the canvas
     fabric.Image.fromURL(mri_path, function(img) {
         // Set the image as the background
@@ -333,10 +310,12 @@ function editMask() {
                        var point = pointWrapper[0];
                        return {x: point[0], y: point[1]};
                    });
+
+                   console.log(points);
                    var polygon = new fabric.Polygon(points, {
                        stroke: 'red',
                        strokeWidth: 1,
-                       fill: 'rgba(0,255,0,120)',
+                       fill: structureColors[cls],
                        objectCaching: false,
                        transparentCorners: false,
                        cornerColor: 'blue',
@@ -354,155 +333,6 @@ function editMask() {
 }
 
 
-
-function overlayImage() {
-    var canvas1 = document.getElementById('annotation-canvas1');
-    var canvas2 = document.getElementById('annotation-canvas2');
-    var ctx1 = canvas1.getContext('2d');
-    var ctx2 = canvas2.getContext('2d');
-    var mriImage = new Image();
-    var mask = new Image();
-    // Clear the canvas before drawing new images
-    ctx1.clearRect(0, 0, canvas1.width, canvas1.height);
-    ctx2.clearRect(0, 0, canvas2.width, canvas2.height);
-
-    // Load and draw the MRI image first
-    mriImage.onload = function() {
-        canvas1.width = mriImage.width;
-        canvas1.height = mriImage.height;
-        canvas2.width = mriImage.width;
-        canvas2.height = mriImage.height;
-
-        ctx1.drawImage(mriImage, 0, 0);
-
-        ctx1.globalAlpha = 0.5;
-        ctx1.drawImage(mask, 0, 0);
-        ctx1.globalAlpha = 1.0;
-        ctx2.drawImage(mask, 0, 0);
-
-
-
-    };
-
-    // Set the source of the MRI image
-    mriImage.src = $('#imagePlaceholder1').attr('src');
-    mask.src = mask_path;
-
-    processCanvasImage();
-}
-
-function processCanvasImage() {
-
-    var canvas1 = document.getElementById('annotation-canvas1');
-    var canvas2 = document.getElementById('annotation-canvas2');
-    var ctx1 = canvas1.getContext('2d');
-    var ctx2 = canvas2.getContext('2d');
-
-    var imageData = ctx2.getImageData(150, 210, 1, 1);
-
-    // Define the color information for the structures
-    var structureColors = {
-        IVD: [64, 64, 64, 255], // Note: Alpha is out of 255 here
-        PE: [128, 128, 128, 255],
-        TS: [192, 192, 192, 255],
-        AAP: [255, 255, 255, 255]
-    };
-
-    // Function to identify structure based on the clicked color
-    function identifyStructure(pixel) {
-        for (var structure in structureColors) {
-            if (structureColors.hasOwnProperty(structure)) {
-                var color = structureColors[structure];
-                if (pixel[0] === color[0] && pixel[1] === color[1] && pixel[2] === color[2] && pixel[3] === color[3]) {
-                    return structure;
-                }
-            }
-        }
-        return "Unknown Structure";
-    }
-
-    function findMatchingPixels(imageData, targetColor) {
-        let pixels = imageData.data;
-        let width = imageData.width;
-        let matchingPixels = [];
-
-        for (let i = 0; i < pixels.length; i += 4) {
-            let r = pixels[i];
-            let g = pixels[i + 1];
-            let b = pixels[i + 2];
-            let a = pixels[i + 3];
-
-            // Check if the current pixel matches the target color
-            if (r === targetColor[0] && g === targetColor[1] && b === targetColor[2] && a === targetColor[3]) {
-                let x = (i / 4) % width;
-                let y = Math.floor((i / 4) / width);
-                matchingPixels.push({ x, y });
-            }
-        }
-        console.log(matchingPixels.length);
-        return matchingPixels;
-    }
-
-    function computeBoundingBox(points) {
-        let minX = Infinity;
-        let maxX = -Infinity;
-        let minY = Infinity;
-        let maxY = -Infinity;
-
-        points.forEach(point => {
-            if (point.x < minX) minX = point.x;
-            if (point.x > maxX) maxX = point.x;
-            if (point.y < minY) minY = point.y;
-            if (point.y > maxY) maxY = point.y;
-        });
-
-        return {
-            topLeft: { x: minX, y: minY },
-            bottomRight: { x: maxX, y: maxY }
-        };
-    }
-
-    function getColorInfoAtClick(x, y) {
-        var ctx = canvas2.getContext('2d');
-        var pixel = ctx.getImageData(x, y, 1, 1).data; // Get pixel data at click location
-        var color = `rgba(${pixel[0]}, ${pixel[1]}, ${pixel[2]}, ${pixel[3] / 255})`; // Construct CSS color value
-
-        // Optionally, identify the structure based on color
-        var structure = identifyStructure(pixel);
-        console.log('Clicked structure:', x, y, structure);
-    }
-
-    canvas2.addEventListener('click', function(event) {
-        var x = event.offsetX;
-        var y = event.offsetY;
-        getColorInfoAtClick(x, y);
-    });
-
-
-    Object.keys(structureColors).forEach(function (structure) {
-        var color = structureColors[structure];
-        var matchingPixels = findMatchingPixels(imageData, color);
-        var boundingBox = computeBoundingBox(matchingPixels);
-
-        // If you want to draw a bounding box for each structure
-        var rect = new fabric.Rect({
-            left: boundingBox.topLeft.x,
-            top: boundingBox.topLeft.y,
-            width: boundingBox.bottomRight.x - boundingBox.topLeft.x,
-            height: boundingBox.bottomRight.y - boundingBox.topLeft.y,
-            fill: 'rgba(0,255,0,100)', // transparent fill
-            stroke: 'red',
-            strokeWidth: 2,
-            selectable: true // If you don't want it to be selectable
-        });
-
-        // Add the rectangle to the fabric canvas
-        canvas2.add(rect);
-    });
-
-    canvas2.renderAll();
-
-}
 
 
 
