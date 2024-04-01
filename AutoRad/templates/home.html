@@ -2,10 +2,12 @@
 {% block title %}Home{% endblock %}
 
 {% block content %}
+<script type="text/javascript" src="./static/jscript.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/4.3.1/fabric.min.js"></script>
 <div class="container-fluid">
-     <div class="row flex-nowrap">
+    <div class="row flex-nowrap">
     <!-- Left Nav Bar -->
-     <div class="col-auto col-md-3 col-xl-1 px-sm-2 px-0 bg-dark">
+    <div class="col-auto col-md-3 col-xl-1 px-sm-2 px-0 bg-dark">
         <div class="d-flex flex-column align-items-center align-items-sm-start px-3 pt-2 text-white min-vh-100">
             <a href="/" class="d-flex align-items-center pb-3 mb-md-0 me-md-auto text-white text-decoration-none">
                 <i class="bi bi-radioactive"></i> <span class="fs-5 d-none d-sm-inline">AutoRad</span>
@@ -16,7 +18,6 @@
                         <i class="fs-4 bi-house"></i> <span class="ms-1 d-none d-sm-inline">Home</span>
                     </a>
                 </li>
-
             </ul>
             <hr>
             <div class="dropdown pb-4">
@@ -37,25 +38,20 @@
         </div>
     </div>
 
-
-
-
-
-        <!-- Main content -->
-        <main role="main" class="col-md-9 col-xl-11 ml-sm-auto px-4">
-            <!-- Module Titles -->
-            <div class="row mb-4 align-items-center">
-                <div class="col-md-8">
-                    <h6 class="display-12">Anatomical Segmentation</h6>
-                </div>
-                <div class="col-md-4">
-                    <h6 class="display-12">Severity Assessment</h6>
-                </div>
-                <hr class="my-2">
+    <!-- Main content -->
+    <main role="main" class="col-md-9 col-xl-11 ml-sm-auto px-4">
+        <!-- Module Titles -->
+        <div class="row mb-4 align-items-center">
+            <div class="col-md-8">
+                <h6 class="display-12">Anatomical Segmentation</h6>
             </div>
+            <div class="col-md-4">
+                <h6 class="display-12">Severity Assessment</h6>
+            </div>
+            <hr class="my-2">
+        </div>
 
-
-    <!-- Row for Image Placeholders and Severity Assessment Dropdowns -->
+        <!-- Row for Image Placeholders and Severity Assessment Dropdowns -->
         <div class="row">
             <!-- Column for Image Placeholders -->
             <div class="col-md-8">
@@ -85,25 +81,81 @@
                                 <input type="file" name="image" accept="image/*" class="form-control" id="imageUpload" onchange="handleImageUpload()">
                             </div>
                             <div>
-                                <button type="button" id="submitImage" class="btn btn-primary" onclick="uploadImage()" disabled>Submit</button>
-                                <button type="button" id="editImage" class="btn btn-secondary" onclick="editMask()" disabled>Edit</button>
+                                <button type="button" id="submitImage" class="btn btn-primary" onclick="uploadImage()" disabled>1.Submit</button>
+                                <button type="button" id="editImage" class="btn btn-secondary" onclick="editMask()" disabled>2.Edit</button>
+                                <button type="button" id="processImage" class="btn btn-secondary" onclick="addBKGtoCanvas()">3.Overlay</button>
                             </div>
                         </form>
                     </div>
                 </div>
-
-                <div class="row">
-                    <div class="col-md-12 canvas-container position-relative">
-                        <canvas id="c" width="500" height="500" style="border:1px solid #ccc;"></canvas>
-                        <button class="btn btn-outline-secondary position-absolute top-right-btn" title="Eyedropper tool" onclick="Edit()">
-                            <i class="bi bi-eyedropper"></i>
-                        </button>
+                <div class="col-md-8 col-auto">
+                    <div class="col-auto col-md-6">
+                        <div class="canvas-container position-relative">
+                            <canvas id="c" width="500" height="500" style="border:1px solid #ccc;"></canvas>
+                            <button class="btn btn-outline-secondary position-absolute top-right-btn" title="Eyedropper tool" onclick="Edit()">
+                                <i class="bi bi-eyedropper"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="input-group col-auto col-md-2" style="display: inline-block; padding: 0 10px; margin-top: .5em; margin-left: 10px; margin-right: -5px;">
+                        <p>
+                            <input type="checkbox" name="typeCheck" id="check-ivd" onclick="onlyOneV2(this)" value="IVD">IVD</input>
+                            <input type="checkbox" name="typeCheck" id="check-pe" onclick="onlyOneV2(this)" value="PE">PE</input>                        
+                            <input type="checkbox" name="typeCheck" id="check-ts" onclick="onlyOneV2(this)" value="TS">TS</input>
+                            <input type="checkbox" name="typeCheck" id="check-aap" onclick="onlyOneV2(this)" value="AAP">AAP</input>
+                        </p>
+                        <p>
+                            <button type="button" id="resetBtn" class="btn btn-secondary" onclick="resetImg(this.value)" value="">Reset</button>
+                            <button type="button" id="saveBtn" class="btn btn-secondary" onclick="saveImg(this.value)" value="">Save</button>
+                            <button type="button" id="delBtn" class="btn btn-secondary" onclick="delImg()" value="">Delete</button>
+                        </p>
+                        <div class="input-group col-auto col-md-3" style="display: inline-block; padding: 0 10px; margin-top: .5em; margin-left: 10px; margin-right: -5px; ">
+                            <p>
+                                <label>
+                                    <span>Angle:</span>
+                                    <input type="range" id="angle-control" value="0" min="0" max="0">
+                                </label>
+                            </p>
+                            <p>
+                                <label>
+                                    <span>Left:</span>
+                                    <input type="range" id="left-control" value="0" min="0" max="640">
+                                </label>
+                            </p>
+                            <p>
+                                <label>
+                                    <span>Top:</span>
+                                    <input type="range" id="top-control" value="0" min="0" max="640">
+                                </label>
+                            </p>
+                            <p>
+                                <label>
+                                    <span>ScaleX:</span>
+                                    <input type="range" id="scaleX-control" value="1" min="0.1" max="2">
+                                </label>
+                            </p>
+                            <p>
+                                <label>
+                                    <span>ScaleY:</span>
+                                    <input type="range" id="scaleY-control" value="1" min="0.1" max="2">
+                                </label>
+                            </p>
+                            <p>
+                                <label>
+                                    <span>board color:</span>
+                                    <input type="color" id="boardcolor" style="display: block">
+                                </label>
+                            </p>
+                            <p>
+                                <label>
+                                    <span>corner color:</span>
+                                    <input type="color" id="cornercolor" style="display: block">
+                                </label>
+                            </p>
+                        </div>                        
                     </div>
                 </div>
-
-
             </div>
-
 
             <!-- Column for Severity Assessment Dropdowns -->
             <div class="col-md-4">
@@ -212,265 +264,348 @@
                         <option value="1">Present</option>
                     </select>
                 </div>
-
-
-
-
             </div>
-
         </div>
-     </main>
-
-
-    </div>
+    </main>
+</div>
 
 <script>
+    var canvas = this.__canvas = new fabric.Canvas('c');
 
-var globalMaskClassPaths = [];
-var structureLayers = [];
-var mask_path;
+    // Canvas Global Settings
+    canvas.backgroundColor = 'grey';
+    fabric.Object.prototype.transparentCorners = false;
+    fabric.Object.prototype.centeredScaling = true;
+    canvas.preserveObjectStacking = true;
 
-function handleImageUpload() {
-    var imageInput = document.getElementById('imageUpload');
-    var submitButton = document.getElementById('submitImage');
-    if (imageInput.files && imageInput.files[0]) {
-        // Enable the submit button
-        submitButton.disabled = false;
-        // Display the uploaded image
-        displayUploadedImage();
-    } else {
-        // Disable the submit button if no image is chosen
-        submitButton.disabled = true;
-    }
-}
+    function editMask() {
+        var mask_path = document.getElementById('imagePlaceholder2').src;
+        var mri_path = document.getElementById('imagePlaceholder1').src;
+        var data = JSON.stringify({'mask_url': mask_path});
+        var csrftoken = getCSRFToken();
+        //canvas = this.__canvas = new fabric.Canvas('c');
 
-function displayUploadedImage() {
-    var input = document.getElementById('imageUpload');
-    var editButton = document.getElementById('editImage');
-    if (input.files && input.files[0]) {
-        var reader = new FileReader();
-
-        reader.onload = function(e) {
-            $('#imagePlaceholder1').attr('src', e.target.result);
-        }
-
-        reader.readAsDataURL(input.files[0]);
-        editButton.disabled = false
-    }
-    else {
-        editButton.disabled = true
-    }
-}
-
-function getCSRFToken() {
-    var cookies = document.cookie.split(';');
-    for (var i = 0; i < cookies.length; i++) {
-        var cookie = jQuery.trim(cookies[i]);
-        if (cookie.substring(0, 'csrftoken'.length + 1) === 'csrftoken=') {
-            return decodeURIComponent(cookie.substring('csrftoken'.length + 1));
-        }
-    }
-    return null;
-}
-var canvas;
-function editMask() {
-    var mask_path = document.getElementById('imagePlaceholder2').src;
-    var mri_path = document.getElementById('imagePlaceholder1').src;
-    var data = JSON.stringify({'mask_url': mask_path});
-    var csrftoken = getCSRFToken();
-    canvas = this.__canvas = new fabric.Canvas('c');
-
-    var structureColors = {
-        IVD: 'rgba(0, 0, 255, 0.8)', // Note: Alpha is out of 255 here
-        PE: 'rgba(128, 128, 128, 0.5)',
-        TS: 'rgba(192, 192, 192, 0.5)',
-        AAP: 'rgba(255, 255, 255, 0.5)'
-    };
-    // Set the MRI image as the background of the canvas
-    fabric.Image.fromURL(mri_path, function(img) {
-        // Set the image as the background
-        canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
-            scaleX: canvas.width / img.width,
-            scaleY: canvas.height / img.height
-        });
-    });
-
-    $.ajax({
-        type: 'POST',
-        url: '/api/get-control-points/',
-        data: data,
-        contentType: 'application/json',
-        beforeSend: function (xhr) {
-            if (csrftoken) {
-                xhr.setRequestHeader("X-CSRFToken", csrftoken);
-            }
-        },
-        success: function (response) {
-           var contours = response.cls_cnt;
-           Object.keys(contours).forEach(function (cls){
-               contours[cls].forEach(function (contour){
-                   var points = contour.map(function (pointWrapper){
-                       var point = pointWrapper[0];
-                       return {x: point[0], y: point[1]};
-                   });
-
-                   var polygon = new fabric.Polygon(points, {
-                       stroke: 'red',
-                       strokeWidth: 1,
-                       fill: structureColors[cls],
-                       objectCaching: false,
-                       transparentCorners: false,
-                       cornerColor: 'blue',
-
-                   });
-                   canvas.add(polygon);
-
-               });
-           });
-
-            canvas.renderAll();
-        }
-
-    });
-}
-
-function polygonPositionHandler(dim, finalMatrix, fabricObject) {
-	  var x = (fabricObject.points[this.pointIndex].x - fabricObject.pathOffset.x),
-		    y = (fabricObject.points[this.pointIndex].y - fabricObject.pathOffset.y);
-		return fabric.util.transformPoint(
-			{ x: x, y: y },
-      fabric.util.multiplyTransformMatrices(
-        fabricObject.canvas.viewportTransform,
-        fabricObject.calcTransformMatrix()
-      )
-		);
-	}
-
-function getObjectSizeWithStroke(object) {
-    var stroke = new fabric.Point(
-        object.strokeUniform ? 1 / object.scaleX : 1,
-        object.strokeUniform ? 1 / object.scaleY : 1
-    ).multiply(object.strokeWidth);
-    return new fabric.Point(object.width + stroke.x, object.height + stroke.y);
-}
-
-function actionHandler(eventData, transform, x, y) {
-		var polygon = transform.target,
-		    currentControl = polygon.controls[polygon.__corner],
-		    mouseLocalPosition = polygon.toLocalPoint(new fabric.Point(x, y), 'center', 'center'),
-        polygonBaseSize = getObjectSizeWithStroke(polygon),
-				size = polygon._getTransformedDimensions(0, 0),
-				finalPointPosition = {
-					x: mouseLocalPosition.x * polygonBaseSize.x / size.x + polygon.pathOffset.x,
-					y: mouseLocalPosition.y * polygonBaseSize.y / size.y + polygon.pathOffset.y
-				};
-		polygon.points[currentControl.pointIndex] = finalPointPosition;
-		return true;
-	}
-
-  // define a function that can keep the polygon in the same position when we change its
-  // width/height/top/left.
-function anchorWrapper(anchorIndex, fn) {
-    return function(eventData, transform, x, y) {
-      var fabricObject = transform.target,
-          absolutePoint = fabric.util.transformPoint({
-              x: (fabricObject.points[anchorIndex].x - fabricObject.pathOffset.x),
-              y: (fabricObject.points[anchorIndex].y - fabricObject.pathOffset.y),
-          }, fabricObject.calcTransformMatrix()),
-          actionPerformed = fn(eventData, transform, x, y),
-          newDim = fabricObject._setPositionDimensions({}),
-          polygonBaseSize = getObjectSizeWithStroke(fabricObject),
-          newX = (fabricObject.points[anchorIndex].x - fabricObject.pathOffset.x) / polygonBaseSize.x,
-            newY = (fabricObject.points[anchorIndex].y - fabricObject.pathOffset.y) / polygonBaseSize.y;
-      fabricObject.setPositionByOrigin(absolutePoint, newX + 0.5, newY + 0.5);
-      return actionPerformed;
-    }
-}
-
-function Edit() {
-    canvas.forEachObject(function (obj) {
-        if (obj.type === 'polygon') { // Check if it's a polygon
-            obj.edit = !obj.edit; // Toggle edit mode
-            if (obj.edit) {
-                var lastControl = obj.points.length - 1;
-                obj.cornerStyle = 'circle';
-                obj.cornerColor = 'rgba(0,0,255,0.5)';
-                obj.controls = obj.points.reduce(function (acc, point, index) {
-                    acc['p' + index] = new fabric.Control({
-                        positionHandler: polygonPositionHandler,
-                        actionHandler: anchorWrapper(index > 0 ? index - 1 : lastControl, actionHandler),
-                        actionName: 'modifyPolygon',
-                        pointIndex: index
-                    });
-                    return acc;
-                }, {});
-            } else {
-                obj.cornerColor = 'blue';
-                obj.cornerStyle = 'rect';
-                obj.controls = fabric.Object.prototype.controls;
-            }
-            obj.hasBorders = !obj.edit;
-        }
-    });
-    canvas.requestRenderAll();
-}
-
-
-
-
-
-
-function uploadImage() {
-    var formData = new FormData();
-    formData.append('image', $('#imageUpload')[0].files[0]);
-    var csrftoken = getCSRFToken();
-
-    $.ajax({
-        type: 'POST',
-        url: '/api/process-image/',
-        data: formData,
-        processData: false,
-        contentType: false,
-        beforeSend: function(xhr) {
-            if (csrftoken) {
-                xhr.setRequestHeader("X-CSRFToken", csrftoken);
-            }
-        },
-        success: function(response) {
-            // Extract relevant data from the response
-            var maskUrl = response.mask_url;
-            // Second API call: view_mask
-            $.ajax({
-                type: 'POST',
-                url: '/api/view-mask/',
-                data: { 'mask_url': maskUrl },  // Pass relevant data to the second API
-                success: function(viewMaskResponse) {
-                    // Handle the response of the second API as needed
-                    $('#imagePlaceholder2').attr('src', viewMaskResponse.mask_url)
-                    globalMaskClassPaths = viewMaskResponse.mask_class_paths;
-                    mask_path = viewMaskResponse.mask_url;
-                },
-                error: function() {
-                    console.error('Error calling view_mask API');
-                }
+        var structureColors = {
+            IVD: 'rgba(0, 0, 255, 0.8)', // Note: Alpha is out of 255 here
+            PE: 'rgba(128, 128, 128, 0.5)',
+            TS: 'rgba(192, 192, 192, 0.5)',
+            AAP: 'rgba(255, 255, 255, 0.5)'
+        };
+        // Set the MRI image as the background of the canvas
+        fabric.Image.fromURL(mri_path, function(img) {
+            // Set the image as the background
+            canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
+                scaleX: canvas.width / img.width,
+                scaleY: canvas.height / img.height
             });
-        },
-        error: function() {
-            console.error('Error processing image');
+        });
+
+        $.ajax({
+            type: 'POST',
+            url: '/api/get-control-points/',
+            data: data,
+            contentType: 'application/json',
+            beforeSend: function (xhr) {
+                if (csrftoken) {
+                    xhr.setRequestHeader("X-CSRFToken", csrftoken);
+                }
+            },
+            success: function (response) {
+            var contours = response.cls_cnt;
+            Object.keys(contours).forEach(function (cls){
+                contours[cls].forEach(function (contour){
+                    var points = contour.map(function (pointWrapper){
+                        var point = pointWrapper[0];
+                        return {x: point[0], y: point[1]};
+                    });
+
+                    console.log(points)
+
+                    var polygon = new fabric.Polygon(points, {
+                        stroke: 'red',
+                        strokeWidth: 1,
+                        fill: structureColors[cls],
+                        objectCaching: false,
+                        transparentCorners: false,
+                        cornerColor: 'blue',
+
+                    });
+                    canvas.add(polygon);
+
+                });
+            });
+
+                canvas.renderAll();
+            }
+
+        });
+    }
+
+    function polygonPositionHandler(dim, finalMatrix, fabricObject) {
+        var x = (fabricObject.points[this.pointIndex].x - fabricObject.pathOffset.x),
+            y = (fabricObject.points[this.pointIndex].y - fabricObject.pathOffset.y);
+        return fabric.util.transformPoint(
+            { x: x, y: y },
+            fabric.util.multiplyTransformMatrices(
+                fabricObject.canvas.viewportTransform,
+                fabricObject.calcTransformMatrix()
+            )
+        );
+    }
+
+    function getObjectSizeWithStroke(object) {
+        var stroke = new fabric.Point(
+            object.strokeUniform ? 1 / object.scaleX : 1,
+            object.strokeUniform ? 1 / object.scaleY : 1
+        ).multiply(object.strokeWidth);
+        return new fabric.Point(object.width + stroke.x, object.height + stroke.y);
+    }
+
+    function actionHandler(eventData, transform, x, y) {
+        var polygon = transform.target,
+            currentControl = polygon.controls[polygon.__corner],
+            mouseLocalPosition = polygon.toLocalPoint(new fabric.Point(x, y), 'center', 'center'),
+            polygonBaseSize = getObjectSizeWithStroke(polygon),
+            size = polygon._getTransformedDimensions(0, 0),
+            finalPointPosition = {
+                x: mouseLocalPosition.x * polygonBaseSize.x / size.x + polygon.pathOffset.x,
+                y: mouseLocalPosition.y * polygonBaseSize.y / size.y + polygon.pathOffset.y
+            };
+        polygon.points[currentControl.pointIndex] = finalPointPosition;
+        return true;
+    }
+
+    // define a function that can keep the polygon in the same position when we change its
+    // width/height/top/left.
+    function anchorWrapper(anchorIndex, fn) {
+        return function(eventData, transform, x, y) {
+            var fabricObject = transform.target,
+                absolutePoint = fabric.util.transformPoint({
+                    x: (fabricObject.points[anchorIndex].x - fabricObject.pathOffset.x),
+                    y: (fabricObject.points[anchorIndex].y - fabricObject.pathOffset.y)
+                }, 
+                fabricObject.calcTransformMatrix()),
+                actionPerformed = fn(eventData, transform, x, y),
+                newDim = fabricObject._setPositionDimensions({}),
+                polygonBaseSize = getObjectSizeWithStroke(fabricObject),
+                newX = (fabricObject.points[anchorIndex].x - fabricObject.pathOffset.x) / polygonBaseSize.x,
+                newY = (fabricObject.points[anchorIndex].y - fabricObject.pathOffset.y) / polygonBaseSize.y;
+            fabricObject.setPositionByOrigin(absolutePoint, newX + 0.5, newY + 0.5);
+            return actionPerformed;
         }
+    }
+
+    function Edit() {
+        canvas.forEachObject(function (obj) {
+            if (obj.type === 'polygon') { // Check if it's a polygon
+                obj.edit = !obj.edit; // Toggle edit mode
+                if (obj.edit) {
+                    var lastControl = obj.points.length - 1;
+                    obj.cornerStyle = 'circle';
+                    obj.cornerColor = 'rgba(0,0,255,0.5)';
+                    obj.controls = obj.points.reduce(function (acc, point, index) {
+                        acc['p' + index] = new fabric.Control({
+                            positionHandler: polygonPositionHandler,
+                            actionHandler: anchorWrapper(index > 0 ? index - 1 : lastControl, actionHandler),
+                            actionName: 'modifyPolygon',
+                            pointIndex: index
+                        });
+                        return acc;
+                    }, {});
+                } else {
+                    obj.cornerColor = 'blue';
+                    obj.cornerStyle = 'rect';
+                    obj.controls = fabric.Object.prototype.controls;
+                }
+                obj.hasBorders = !obj.edit;
+            }
+        });
+        canvas.requestRenderAll();
+    }
+
+    // Initially disable submit button
+    document.getElementById('submitImage').disabled = true;
+    // Initially disable edit button
+    document.getElementById('editImage').disabled = true;
+
+    // Zoom in/out function
+    canvas.on('mouse:wheel', function(opt) {
+        var delta = opt.e.deltaY;
+        var zoom = canvas.getZoom();
+        zoom *= 0.999 ** delta;
+        if (zoom > 20) zoom = 20;
+        if (zoom < 0.01) zoom = 0.01;
+        //canvas.zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, zoom);
+        canvas.zoomToPoint(new fabric.Point(canvas.width / 2, canvas.height / 2), zoom);
+        opt.e.preventDefault();
+        opt.e.stopPropagation();
     });
-}
+    
+    function addBKGtoCanvas() {
+        var imageOrigin = document.getElementById("imagePlaceholder1")
+        var imageBKG = new fabric.Image(imageOrigin,
+        {
+            left:0,
+            top:0,
+            opacity:1
+        })
+        imageBKG.scaleToHeight(canvas.height)
+        canvas.setBackgroundImage(imageBKG,canvas.renderAll.bind(canvas))
 
+        /*
+        var filter = new fabric.Image.filters.Invert();
 
+        ["IVD","PE","TS","AAP"].forEach((item) => {
+            var tempImg = new fabric.Image(document.getElementById("image" + item),{left:0,top:0,opacity:0,cacheKey:item})
+            tempImg.scaleToHeight(canvas.height)
+            tempImg.filters.push(filter);
+            canvas.add(tempImg)
+            canvas.setActiveObject(tempImg);
+        })
+        */
+        canvas.renderAll()
+    }
 
-// Initially disable submit button
-document.getElementById('submitImage').disabled = true;
-// Initially disable edit button
-document.getElementById('editImage').disabled = true;
+    function showImg(btnValue) {
+        if (btnValue=="") {
+            console.log("Reset button with empty value")
+            return
+        }
+        var tempImgParms = []
+        var tempImgSrc = ""
+        if (btnValue=="IVD") {
+            tempImgParms = imgsParmsHolders[0]
+            tempImgSrc = globalMaskClassPaths[0]
+        }
+        if (btnValue=="PE") {
+            tempImgParms = imgsParmsHolders[1]
+            tempImgSrc = globalMaskClassPaths[1]
+        }
+        if (btnValue=="TS") {
+            tempImgParms = imgsParmsHolders[2]
+            tempImgSrc = globalMaskClassPaths[2]
+        }
+        if (btnValue=="AAP") {
+            tempImgParms = imgsParmsHolders[3]
+            tempImgSrc = globalMaskClassPaths[3]
+        }
 
+        console.log(btnValue)
+        console.log(tempImgParms)
+        console.log(tempImgSrc)
 
+        var tempImg = new fabric.Image(document.getElementById("image" + btnValue),
+            {   
+                angle:tempImgParms[0],
+                left:tempImgParms[1],
+                top:tempImgParms[2],
+                scaleX:tempImgParms[3],
+                scaleY:tempImgParms[4],
+                opacity:0.5,
+                cacheKey:btnValue
+            })
+        var filter = new fabric.Image.filters.Invert();
+        //tempImg.scaleToHeight(canvas.height)
+        tempImg.filters.push(filter);
+        canvas.add(tempImg)
+        canvas.setActiveObject(tempImg);
+        canvas.renderAll()
+    }
 
+    //remove canvas' image
+    function removeImg(btnValue) {
+        var tempImg = canvas.item(0)
+        canvas.remove(tempImg)
+        canvas.renderAll()
+    }                    
 
+    // reset image position
+    function resetImg(btnValue) {
+        if (btnValue=="") {
+            console.log("Reset button with empty value")
+            canvas.renderAll()
+            return
+        }
+        if (btnValue=="IVD") {
+            imgsParmsHolders[0]=[0,0,0,2,2]
+            console.log(imgsParmsHolders[0])
+            canvas.renderAll()
+            return
+        }
+        if (btnValue=="PE") {
+            imgsParmsHolders[1]=[0,0,0,2,2]
+            console.log(imgsParmsHolders[1])
+            canvas.renderAll()
+            return
+        }
+        if (btnValue=="TS") {
+            imgsParmsHolders[2]=[0,0,0,2,2]
+            console.log(imgsParmsHolders[2])
+            canvas.renderAll()
+            return
+        }
+        if (btnValue=="AAP") {
+            imgsParmsHolders[3]=[0,0,0,2,2]
+            console.log(imgsParmsHolders[3])
+            canvas.renderAll()
+            return
+        }
+    }
+
+    // Save image position and angle
+    function saveImg(btnValue) {
+        if (btnValue=="") {
+            console.log("Save button with empty value")
+            return
+        }
+        var tempImg = canvas.item(0)
+        var val = tempImg.cacheKey
+        var imgParms = [tempImg.angle,tempImg.left,tempImg.top,tempImg.scaleX,tempImg.scaleY]
+        if (val=="IVD") imgsParmsHolders[0]=imgParms
+        if (val=="PE") imgsParmsHolders[1]=imgParms
+        if (val=="TS") imgsParmsHolders[2]=imgParms
+        if (val=="AAP") imgsParmsHolders[3]=imgParms
+        console.log(imgParms)
+    }
+
+    function saveImgV2(btnValue) {
+        if (btnValue=="") {
+            console.log("Save button with empty value")
+            return
+        }
+        var imgAngle = document.getElementById("angle-control").value
+        var imgLeft = document.getElementById("left-control").value
+        var imgTop = document.getElementById("top-control").value
+        var imgScaleX = document.getElementById("scaleX-control").value
+        var imgScaleY = document.getElementById("scaleY-control").value
+
+        if (btnValue=="IVD") {
+            imgsParmsHolders[0]=[imgAngle,imgLeft,imgTop,imgScale]
+            console.log(imgsParmsHolders[0])
+            return
+        }
+        if (btnValue=="PE") {
+            imgsParmsHolders[1]=[imgAngle,imgLeft,imgTop,imgScale]
+            console.log(imgsParmsHolders[1])
+            return
+        }
+        if (btnValue=="TS") {
+            imgsParmsHolders[2]=[imgAngle,imgLeft,imgTop,imgScale]
+            console.log(imgsParmsHolders[2])
+            return
+        }
+        if (btnValue=="AAP") {
+            imgsParmsHolders[3]=[imgAngle,imgLeft,imgTop,imgScale]
+            console.log(imgsParmsHolders[3])
+            return
+        }
+    }
+
+    function delImg() {
+        var obj = canvas.getActiveObject();
+        var result = alert("It will be removed and can't be undo")
+        canvas.remove(obj)
+    }
 </script>
 
 

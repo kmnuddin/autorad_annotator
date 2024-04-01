@@ -7,23 +7,21 @@ var imgParmsIVD = [];
 var imgParmsPE = [];
 var imgParmsTS = [];
 var imgParmsAAP = [];
+
 /**
  * Image upload image function
  */
 function handleImageUpload() {
     var imageInput = document.getElementById('imageUpload');
     var submitButton = document.getElementById('submitImage');
-    
     if (imageInput.files && imageInput.files[0]) {
         // Enable the submit button
         submitButton.disabled = false;
-        
         // Display the uploaded image
         displayUploadedImage();
     } else {
         // Disable the submit button if no image is chosen
         submitButton.disabled = true;
-        
     }
 }
 
@@ -39,7 +37,7 @@ function displayUploadedImage() {
 
         reader.onload = function(e) {
             $('#imagePlaceholder1').attr('src', e.target.result);
-            $('#imageOrigin').attr('src', e.target.result);
+            // $('#imageOrigin').attr('src', e.target.result);
         }
 
         reader.readAsDataURL(input.files[0]);
@@ -96,7 +94,7 @@ function uploadImage() {
                     globalMaskClassPaths = viewMaskResponse.mask_class_paths;
                     mask_path = viewMaskResponse.mask_url;
                     initalizeImages()
-                    // addBKGtoCanvas()
+                    addBKGtoCanvas()
                 },
                 error: function() {
                     console.error('Error calling view_mask API');
@@ -117,7 +115,6 @@ function initalizeImages() {
         alert("Error! Images are missing!")
         return
     }
-
     
     $('#imageIVD').attr('src', globalMaskClassPaths[0])
     $('#imagePE').attr('src', globalMaskClassPaths[1])

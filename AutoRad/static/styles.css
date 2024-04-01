@@ -51,12 +51,15 @@ body, html {
     flex-shrink: 0;
 }
 
-.imageCanvas {
-    position: relative;
+.canvas-container {
+    display: flex;
+    justify-content: center;
+    margin-top: 20px;
+    margin-bottom: 20px;
 }
 
-.imageOverlay {
-    /* filter:invert(); */
-    opacity: 0.3;
-    position: absolute;
+.top-right-btn {
+    top: 10px; /* Adjust as needed */
+    right: 10px; /* Adjust as needed */
+    z-index: 10; /* Ensure the button stays on top of other elements */
 }
