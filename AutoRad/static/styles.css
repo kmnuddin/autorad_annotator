@@ -56,10 +56,17 @@ body, html {
     justify-content: center;
     margin-top: 20px;
     margin-bottom: 20px;
+    border: 1px solid #ccc;
+    height: calc(100vh);
 }
 
 .top-right-btn {
     top: 10px; /* Adjust as needed */
     right: 10px; /* Adjust as needed */
     z-index: 10; /* Ensure the button stays on top of other elements */
+}
+
+#c {
+    max-width: 100%; 
+    max-height: 100%; 
 }

@@ -7,7 +7,7 @@
 <div class="container-fluid">
     <div class="row flex-nowrap">
     <!-- Left Nav Bar -->
-    <div class="col-auto col-md-3 col-xl-1 px-sm-2 px-0 bg-dark">
+    <div class="col-auto col-md-2 col-xl-1 px-sm-2 px-0 bg-dark">
         <div class="d-flex flex-column align-items-center align-items-sm-start px-3 pt-2 text-white min-vh-100">
             <a href="/" class="d-flex align-items-center pb-3 mb-md-0 me-md-auto text-white text-decoration-none">
                 <i class="bi bi-radioactive"></i> <span class="fs-5 d-none d-sm-inline">AutoRad</span>
@@ -39,13 +39,13 @@
     </div>
 
     <!-- Main content -->
-    <main role="main" class="col-md-9 col-xl-11 ml-sm-auto px-4">
+    <main role="main" class="col-md-10 col-xl-11 ml-sm-auto px-4">
         <!-- Module Titles -->
         <div class="row mb-4 align-items-center">
-            <div class="col-md-8">
+            <div class="col-md-8 col-xl-8">
                 <h6 class="display-12">Anatomical Segmentation</h6>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-4 col-xl-4">
                 <h6 class="display-12">Severity Assessment</h6>
             </div>
             <hr class="my-2">
@@ -83,76 +83,84 @@
                             <div>
                                 <button type="button" id="submitImage" class="btn btn-primary" onclick="uploadImage()" disabled>1.Submit</button>
                                 <button type="button" id="editImage" class="btn btn-secondary" onclick="editMask()" disabled>2.Edit</button>
-                                <button type="button" id="processImage" class="btn btn-secondary" onclick="addBKGtoCanvas()">3.Overlay</button>
+                                {% comment %} <button type="button" id="processImage" class="btn btn-secondary" onclick="addBKGtoCanvas()">3.Overlay</button> {% endcomment %}
                             </div>
                         </form>
                     </div>
                 </div>
-                <div class="col-md-8 col-auto">
-                    <div class="col-auto col-md-6">
-                        <div class="canvas-container position-relative">
-                            <canvas id="c" width="500" height="500" style="border:1px solid #ccc;"></canvas>
-                            <button class="btn btn-outline-secondary position-absolute top-right-btn" title="Eyedropper tool" onclick="Edit()">
-                                <i class="bi bi-eyedropper"></i>
-                            </button>
+                <hr class="my-2">
+                <div class = "row">
+                    <div class="col-md-12 col-xl-12 col-auto">
+                        <!-- Canvas Here -->
+                        <div class="row">
+                            <div class="col-auto col-md-8 col-xl-8">
+                                <button class="btn btn-outline-secondary" title="Eyedropper tool" onclick="Edit()">
+                                    <i class="bi bi-eyedropper">Edit Selected Ploygon</i>
+                                </button>                                
+                                <div class="canvas-container">
+                                    <canvas id="c" style="border:1px solid #ccc;"></canvas>                                    
+                                </div>                                
+                            </div>
                         </div>
-                    </div>
-                    <div class="input-group col-auto col-md-2" style="display: inline-block; padding: 0 10px; margin-top: .5em; margin-left: 10px; margin-right: -5px;">
-                        <p>
-                            <input type="checkbox" name="typeCheck" id="check-ivd" onclick="onlyOneV2(this)" value="IVD">IVD</input>
-                            <input type="checkbox" name="typeCheck" id="check-pe" onclick="onlyOneV2(this)" value="PE">PE</input>                        
-                            <input type="checkbox" name="typeCheck" id="check-ts" onclick="onlyOneV2(this)" value="TS">TS</input>
-                            <input type="checkbox" name="typeCheck" id="check-aap" onclick="onlyOneV2(this)" value="AAP">AAP</input>
-                        </p>
-                        <p>
-                            <button type="button" id="resetBtn" class="btn btn-secondary" onclick="resetImg(this.value)" value="">Reset</button>
-                            <button type="button" id="saveBtn" class="btn btn-secondary" onclick="saveImg(this.value)" value="">Save</button>
-                            <button type="button" id="delBtn" class="btn btn-secondary" onclick="delImg()" value="">Delete</button>
-                        </p>
-                        <div class="input-group col-auto col-md-3" style="display: inline-block; padding: 0 10px; margin-top: .5em; margin-left: 10px; margin-right: -5px; ">
+                        <!-- Image Manipulation Controller Buttons -->
+                        <div class="input-group col-auto col-md-3 col-xl-3 border rounded"  style="display: inline-block; padding: 0 10px; margin-top: .5em; margin-left: 10px; margin-right: -5px;">
                             <p>
-                                <label>
-                                    <span>Angle:</span>
-                                    <input type="range" id="angle-control" value="0" min="0" max="0">
-                                </label>
+                                <input type="checkbox" name="typeCheck" id="check-ivd" onclick="onlyOneV2(this)" value="IVD">IVD</input>
+                                <input type="checkbox" name="typeCheck" id="check-pe" onclick="onlyOneV2(this)" value="PE">PE</input>                        
+                                <input type="checkbox" name="typeCheck" id="check-ts" onclick="onlyOneV2(this)" value="TS">TS</input>
+                                <input type="checkbox" name="typeCheck" id="check-aap" onclick="onlyOneV2(this)" value="AAP">AAP</input>
                             </p>
                             <p>
-                                <label>
-                                    <span>Left:</span>
-                                    <input type="range" id="left-control" value="0" min="0" max="640">
-                                </label>
+                                
+                                <button type="button" id="resetBtn" class="btn btn-secondary" onclick="resetImg(this.value)" value="">Reset</button>
+                                <button type="button" id="saveBtn" class="btn btn-secondary" onclick="saveImg(this.value)" value="">Save</button>
+                                <button type="button" id="delBtn" class="btn btn-secondary" onclick="delImg()" value="">Delete</button>
                             </p>
-                            <p>
-                                <label>
-                                    <span>Top:</span>
-                                    <input type="range" id="top-control" value="0" min="0" max="640">
-                                </label>
-                            </p>
-                            <p>
-                                <label>
-                                    <span>ScaleX:</span>
-                                    <input type="range" id="scaleX-control" value="1" min="0.1" max="2">
-                                </label>
-                            </p>
-                            <p>
-                                <label>
-                                    <span>ScaleY:</span>
-                                    <input type="range" id="scaleY-control" value="1" min="0.1" max="2">
-                                </label>
-                            </p>
-                            <p>
-                                <label>
-                                    <span>board color:</span>
-                                    <input type="color" id="boardcolor" style="display: block">
-                                </label>
-                            </p>
-                            <p>
-                                <label>
-                                    <span>corner color:</span>
-                                    <input type="color" id="cornercolor" style="display: block">
-                                </label>
-                            </p>
-                        </div>                        
+                            <div class="input-group" style="display: inline-block; padding: 0 10px; margin-top: .5em; margin-left: 10px; margin-right: -5px; ">
+                                <p>
+                                    <label>
+                                        <span>Angle:</span>
+                                        <input type="range" id="angle-control" value="0" min="0" max="0">
+                                    </label>
+                                </p>
+                                <p>
+                                    <label>
+                                        <span>Left:</span>
+                                        <input type="range" id="left-control" value="0" min="0" max="640">
+                                    </label>
+                                </p>
+                                <p>
+                                    <label>
+                                        <span>Top:</span>
+                                        <input type="range" id="top-control" value="0" min="0" max="640">
+                                    </label>
+                                </p>
+                                <p>
+                                    <label>
+                                        <span>ScaleX:</span>
+                                        <input type="range" id="scaleX-control" value="1" min="0.1" max="2">
+                                    </label>
+                                </p>
+                                <p>
+                                    <label>
+                                        <span>ScaleY:</span>
+                                        <input type="range" id="scaleY-control" value="1" min="0.1" max="2">
+                                    </label>
+                                </p>
+                                <p>
+                                    <label>
+                                        <span>board color:</span>
+                                        <input type="color" id="boardcolor" style="display: block">
+                                    </label>
+                                </p>
+                                <p>
+                                    <label>
+                                        <span>corner color:</span>
+                                        <input type="color" id="cornercolor" style="display: block">
+                                    </label>
+                                </p>
+                            </div>                        
+                        </div>
                     </div>
                 </div>
             </div>
@@ -266,6 +274,8 @@
                 </div>
             </div>
         </div>
+        
+        
     </main>
 </div>
 
@@ -291,6 +301,7 @@
             TS: 'rgba(192, 192, 192, 0.5)',
             AAP: 'rgba(255, 255, 255, 0.5)'
         };
+
         // Set the MRI image as the background of the canvas
         fabric.Image.fromURL(mri_path, function(img) {
             // Set the image as the background
@@ -319,12 +330,13 @@
                         return {x: point[0], y: point[1]};
                     });
 
+                    console.log(cls)
                     console.log(points)
 
                     var polygon = new fabric.Polygon(points, {
                         stroke: 'red',
                         strokeWidth: 1,
-                        fill: structureColors[cls],
+                        //fill: structureColors[cls],
                         objectCaching: false,
                         transparentCorners: false,
                         cornerColor: 'blue',
