@@ -2,11 +2,127 @@ var globalMaskClassPaths = [];
 var structureLayers = [];
 var mask_path;
 
-var imgsParmsHolders = [];
-var imgParmsIVD = [];
-var imgParmsPE = [];
-var imgParmsTS = [];
-var imgParmsAAP = [];
+/* DB is described below:
+
+    users = {
+        "user_ID1" : {
+            username:
+            pwd:
+            images:{
+                "image_ID1":{
+                    src:""
+                    IVD:[
+                            {
+                                id:"IVD_1"
+                                src:
+                                top:
+                                left:
+                                angle:
+                                scaleX:
+                                scaleY:
+                                points:[]
+                            },
+                            {
+                                id:"IVD_2"
+                                src:
+                                top:
+                                left:
+                                angle:
+                                scaleX:
+                                scaleY:
+                                points:[]
+                            }
+                        ],
+                    PE:[],
+                    TS:[],
+                    AAP:[]                    
+                }
+                "image_ID2":{},
+                "image_ID3":{}
+            }
+        },
+        "user_ID2":{},
+        "user_ID3":{}
+    }
+
+*/
+
+var usersDB = {}
+
+/**
+ * user class for DB 
+ */
+class user {
+
+    constructor(username,userpwd) {
+        
+        this.userDict = {
+            username:username,
+            password:userpwd,
+            images:{}
+        }
+    }
+
+    addToUsers() {
+        this.userID = generateUUID("user")
+        console.log("New user added to database: " + this.userID)
+        usersDB[this.userID]=this.userDict
+    }
+}
+
+/**
+ * function to generate unique ID
+ */
+function generateUUID(prefixString) {
+    var timeStamp = Date.now().toString(36);
+    var randomValue = Math.random().toString(36).substring(2, 15);
+    return(`${prefixString}-${timeStamp}-${randomValue}`)
+}
+
+/**
+ * class of autoRad images.
+ */
+
+class autoRadImage {
+
+    constructor(srcString) {
+        this.imgDict = {
+            src:srcString,
+            IVD:[],
+            PE:[],
+            TS:[],
+            AAP:[]
+        }
+
+    }
+
+    addToUser(userId) {
+        this.imageID = generateUUID("image")
+        console.log("New image " + `${this.imageID}` + " added to user: " + userId)
+        usersDB[userId].images[this.imageID] = this.imgDict
+    }
+}
+
+class imgMask {
+
+    constructor(typeStr,idNum,ptArr) {
+        this.maskDict = {
+            id:typeStr+idNum,
+            points:ptArr,
+            top:0,
+            left:0,
+            angle:0,
+            ScaleX:1,
+            ScaleY:1
+        }
+    }
+
+    addToImage(userId, imageId, typeStr) {
+        console.log("A new "+typeStr+" mask is added under image: " + imageId + " under user: " + userId)
+        usersDB[userId].images[imageId][typeStr].push(this.maskDict)
+    }
+}
+
 
 /**
  * Image upload image function
