@@ -288,6 +288,9 @@
     fabric.Object.prototype.centeredScaling = true;
     canvas.preserveObjectStacking = true;
 
+    testingCaseIni()
+    testingImgIni()
+
     function editMask() {
         var mask_path = document.getElementById('imagePlaceholder2').src;
         var mri_path = document.getElementById('imagePlaceholder1').src;
@@ -330,8 +333,7 @@
                         return {x: point[0], y: point[1]};
                     });
 
-                    console.log(cls)
-                    console.log(points)
+                    masksToImgDB(curUserID,curImageID,cls,points)
 
                     var polygon = new fabric.Polygon(points, {
                         stroke: 'red',

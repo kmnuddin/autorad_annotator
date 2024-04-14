@@ -1,3 +1,7 @@
+var curUserID;
+var curImageID;
+
+
 var globalMaskClassPaths = [];
 var structureLayers = [];
 var mask_path;
@@ -103,6 +107,9 @@ class autoRadImage {
     }
 }
 
+/**
+ * Image mask class.
+ */
 class imgMask {
 
     constructor(typeStr,idNum,ptArr) {
@@ -123,6 +130,37 @@ class imgMask {
     }
 }
 
+/**
+ * function to initial userDB with testing user
+ */
+function testingCaseIni() {
+    var testUser = new user("Lijia","12345678")
+    testUser.addToUsers()
+
+    curUserID=testUser.userID
+}
+
+/**
+ * function to initial images with the select image.
+ */
+function testingImgIni() {
+    var img = new autoRadImage(document.getElementById("imagePlaceholder1").src)
+    img.addToUser(curUserID)
+
+    curImageID = img.imageID
+}
+
+/**
+ * 
+ */
+function masksToImgDB(userID, imgID, typeString, ptsArr) {
+
+    var imgs = usersDB[userID].images[imgID][typeString]
+    var idNum = imgs.length
+    var maskTemp = new imgMask(typeString,idNum+1, ptsArr)
+    maskTemp.addToImage(userID,imgID,typeString)
+
+}
 
 /**
  * Image upload image function
