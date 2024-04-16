@@ -107,8 +107,8 @@
                 <div class="row">
                     <div class="input-group col-auto col-md-12 col-xl-12 border rounded" style="display: inline-block; padding: 0 10px; margin-top: .5em;"> 
                         <p style = "padding: 5px 0 5px 0">                                            
-                            <button type="button" id="resetBtn" class="btn btn-secondary" onclick="resetImg(this.value)" value="">Reset</button>
-                            <button type="button" id="saveBtn" class="btn btn-secondary" onclick="saveImg(this.value)" value="">Save</button>                                            
+                            <button type="button" id="resetBtn" class="btn btn-secondary" onclick="resetMask()" value="">Reset</button>
+                            <button type="button" id="saveBtn" class="btn btn-secondary" onclick="saveMask()" value="">Save</button>                                            
                         </p>
                         <div class="input-group" >
                             <p>
@@ -426,10 +426,10 @@
             var maskID = this.value;
 
             if (maskID != "") {
-                canvas.remove(...canvas.getObjects());      // This will not remove background image
+                removeAllMask();      // This will not remove background image
             }
             var type = maskID.slice(0,-1)
-            var numID = +maskID.substring(maskID.length-1)
+            //var numID = +maskID.substring(maskID.length-1)
 
             var masks = usersDB[curUserID].images[curImageID][type]
             
@@ -587,198 +587,57 @@
         canvas.requestRenderAll();
     }
 
-    /**
-     * old function editMask.
-     */
-    function editMask() {
-        var mri_path = document.getElementById('imagePlaceholder1').src;
-        var mask_path = document.getElementById('imagePlaceholder2').src;
-        var data = JSON.stringify({'mask_url': mask_path});
-        var csrftoken = getCSRFToken();
-
-        var imgExistBln = false;    // added
-
-        $.ajax({
-            type: 'POST',
-            url: '/api/get-control-points/',
-            data: data,
-            contentType: 'application/json',
-            beforeSend: function (xhr) {
-                if (csrftoken) {
-                    xhr.setRequestHeader("X-CSRFToken", csrftoken);
-                }
-            },
-            success: function (response) {            
-            
-            var contours = response.cls_cnt;
-            Object.keys(contours).forEach(function (cls){
-                contours[cls].forEach(function (contour){
-                    var points = contour.map(function (pointWrapper){
-                        var point = pointWrapper[0];
-                        return {x: point[0], y: point[1]};
-                    });
-
-                    var polygon = new fabric.Polygon(points, {
-                        stroke: 'red',
-                        strokeWidth: 1,
-                        //fill: structureColors[cls],
-                        objectCaching: false,
-                        transparentCorners: false,
-                        cornerColor: 'blue',
-
-                    });
-                    canvas.add(polygon);
-
-                });
-            });
-
-                canvas.renderAll();
-            }
-
-        });
-    }
-
-    function showImg(btnValue) {
-        if (btnValue=="") {
-            console.log("Reset button with empty value")
-            return
-        }
-        var tempImgParms = []
-        var tempImgSrc = ""
-        if (btnValue=="IVD") {
-            tempImgParms = imgsParmsHolders[0]
-            tempImgSrc = globalMaskClassPaths[0]
-        }
-        if (btnValue=="PE") {
-            tempImgParms = imgsParmsHolders[1]
-            tempImgSrc = globalMaskClassPaths[1]
-        }
-        if (btnValue=="TS") {
-            tempImgParms = imgsParmsHolders[2]
-            tempImgSrc = globalMaskClassPaths[2]
-        }
-        if (btnValue=="AAP") {
-            tempImgParms = imgsParmsHolders[3]
-            tempImgSrc = globalMaskClassPaths[3]
-        }
-
-        console.log(btnValue)
-        console.log(tempImgParms)
-        console.log(tempImgSrc)
-
-        var tempImg = new fabric.Image(document.getElementById("image" + btnValue),
-            {   
-                angle:tempImgParms[0],
-                left:tempImgParms[1],
-                top:tempImgParms[2],
-                scaleX:tempImgParms[3],
-                scaleY:tempImgParms[4],
-                opacity:0.5,
-                cacheKey:btnValue
-            })
-        var filter = new fabric.Image.filters.Invert();
-        //tempImg.scaleToHeight(canvas.height)
-        tempImg.filters.push(filter);
-        canvas.add(tempImg)
-        canvas.setActiveObject(tempImg);
-        canvas.renderAll()
-    }
-
-    //remove canvas' image
-    function removeImg(btnValue) {
-        var tempImg = canvas.item(0)
-        canvas.remove(tempImg)
-        canvas.renderAll()
+    //remove all masks on the canvas
+    function removeAllMask() {
+        canvas.remove(...canvas.getObjects())
     }                    
 
-    // reset image position
-    function resetImg(btnValue) {
-        if (btnValue=="") {
-            console.log("Reset button with empty value")
-            canvas.renderAll()
-            return
+    // reset mask
+    function resetMask() {
+        removeAllMask()
+        var maskID = document.getElementById('maskSelection').value;
+        var type = maskID.slice(0,-1)
+        var masks = usersDB[curUserID].images[curImageID][type]
+        for (item in masks) {
+            if (masks[item].id == maskID) {
+                var mask = masks[item]
+                break
+            }
         }
-        if (btnValue=="IVD") {
-            imgsParmsHolders[0]=[0,0,0,2,2]
-            console.log(imgsParmsHolders[0])
-            canvas.renderAll()
-            return
-        }
-        if (btnValue=="PE") {
-            imgsParmsHolders[1]=[0,0,0,2,2]
-            console.log(imgsParmsHolders[1])
-            canvas.renderAll()
-            return
-        }
-        if (btnValue=="TS") {
-            imgsParmsHolders[2]=[0,0,0,2,2]
-            console.log(imgsParmsHolders[2])
-            canvas.renderAll()
-            return
-        }
-        if (btnValue=="AAP") {
-            imgsParmsHolders[3]=[0,0,0,2,2]
-            console.log(imgsParmsHolders[3])
-            canvas.renderAll()
-            return
-        }
+
+        loadControls(mask)
+        plotOnePolygon(mask)
     }
 
-    // Save image position and angle
-    function saveImg(btnValue) {
-        if (btnValue=="") {
-            console.log("Save button with empty value")
-            return
+    // save mask parameters
+    function saveMask() {
+
+        var maskID = document.getElementById('maskSelection').value;
+        var type = maskID.slice(0,-1)
+        var masks = usersDB[curUserID].images[curImageID][type]
+        for (item in masks) {
+            if (masks[item].id == maskID) {
+                var mask = masks[item]
+                break
+            }
         }
-        var tempImg = canvas.item(0)
-        var val = tempImg.cacheKey
-        var imgParms = [tempImg.angle,tempImg.left,tempImg.top,tempImg.scaleX,tempImg.scaleY]
-        if (val=="IVD") imgsParmsHolders[0]=imgParms
-        if (val=="PE") imgsParmsHolders[1]=imgParms
-        if (val=="TS") imgsParmsHolders[2]=imgParms
-        if (val=="AAP") imgsParmsHolders[3]=imgParms
-        console.log(imgParms)
+
+        mask.top = parseInt(document.getElementById("top-control").value,10)
+        mask.left = parseInt(document.getElementById("left-control").value,10) 
+        mask.opacity = parseFloat(document.getElementById("opacity-control").value)
+        mask.angle = parseInt(document.getElementById("angle-control").value,10) 
+        mask.scale = parseFloat(document.getElementById("scale-control").value)
+
     }
 
-    function saveImgV2(btnValue) {
-        if (btnValue=="") {
-            console.log("Save button with empty value")
-            return
-        }
-        var imgAngle = document.getElementById("angle-control").value
-        var imgLeft = document.getElementById("left-control").value
-        var imgTop = document.getElementById("top-control").value
-        var imgScaleX = document.getElementById("scaleX-control").value
-        var imgScaleY = document.getElementById("scaleY-control").value
-
-        if (btnValue=="IVD") {
-            imgsParmsHolders[0]=[imgAngle,imgLeft,imgTop,imgScaleX,imgScaleY]
-            console.log(imgsParmsHolders[0])
-            return
-        }
-        if (btnValue=="PE") {
-            imgsParmsHolders[1]=[imgAngle,imgLeft,imgTop,imgScaleX,imgScaleY]
-            console.log(imgsParmsHolders[1])
-            return
-        }
-        if (btnValue=="TS") {
-            imgsParmsHolders[2]=[imgAngle,imgLeft,imgTop,imgScaleX,imgScaleY]
-            console.log(imgsParmsHolders[2])
-            return
-        }
-        if (btnValue=="AAP") {
-            imgsParmsHolders[3]=[imgAngle,imgLeft,imgTop,imgScaleX,imgScaleY]
-            console.log(imgsParmsHolders[3])
-            return
-        }
-    }
-
+    // function to brutal delete the active obj on canvas
     function delMask() {
         var obj = canvas.getActiveObject();
         var result = alert("It will be removed and can't be undo")
         canvas.remove(obj)
     }
 
+    // use to load the parameters when the mask is first created
     function loadControls(mask) {
         document.getElementById("top-control").value = mask.top;
         document.getElementById("left-control").value = mask.left;
@@ -788,6 +647,7 @@
         //document.getElementById("scaleY-control").value = mask.ScaleY;        
     }
 
+    // function to dynamic track the object manipulation
     function updateControls() {
         var canvasObj = canvas.getActiveObject()
         if (canvasObj) {
