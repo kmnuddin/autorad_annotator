@@ -115,13 +115,25 @@ class autoRadImage {
 class imgMask {
 
     constructor(typeStr,idNum,ptArr) {
+
+        var canvasWidth = parseInt(document.getElementById("c").style.width.slice(0,-2))
+        var scaleRatio = canvasWidth/500
+
+        var minLeft = canvasWidth;
+        var minTop = canvasWidth;
+
+        for (let pts in ptArr) {
+            if (ptArr[pts].x < minLeft) minLeft=ptArr[pts].x
+            if (ptArr[pts].y < minTop) minTop=ptArr[pts].y
+        }
+
         this.maskDict = {
             id:typeStr+idNum,
             points:ptArr,
-            top:0,
-            left:0,
+            top:minTop * scaleRatio,
+            left:minLeft * scaleRatio,
             angle:0,
-            Scale:1,
+            Scale:scaleRatio,
             opacity:0.8,
             // cornColor:"#ff0000",        //red
             cornerColor:"#0000ff",        //blue
@@ -269,17 +281,17 @@ function extractMasks() {
 /**
  * function to save the current DB in json format. Not working. JS file conflict (fabric and require. Or need more work)
  */
-function saveDBtoJson() {
-    var jsonString = JSON.stringify(usersDB)
-    // var blob = new Blob([jsonString],{type:"application/json"})
-    var fs = require('fs');
-    fs.writeFile("test.json", jsonString, function(err) {
-        if (err) {
-            console.log(err);
-        }
-    });
-    // fileSaver.saveAs(blob, "static/testDB.json")
-}
+// function saveDBtoJson() {
+//     var jsonString = JSON.stringify(usersDB)
+//     // var blob = new Blob([jsonString],{type:"application/json"})
+//     var fs = require('fs');
+//     fs.writeFile("test.json", jsonString, function(err) {
+//         if (err) {
+//             console.log(err);
+//         }
+//     });
+//     // fileSaver.saveAs(blob, "static/testDB.json")
+// }
 
 /**
  * Image upload image function
@@ -380,103 +392,6 @@ function uploadImage() {
             console.error('Error processing image');
         }
     });
-}
-
-/**
- * Old function. Can be removed
- * @returns 
- */
-function initalizeImages() {
-    
-    if (globalMaskClassPaths.length == 0) {
-        console.log("Images are not generated! Please check the code!")
-        alert("Error! Images are missing!")
-        return
-    }
-    
-    $('#imageIVD').attr('src', globalMaskClassPaths[0])
-    $('#imagePE').attr('src', globalMaskClassPaths[1])
-    $('#imageTS').attr('src', globalMaskClassPaths[2])
-    $('#imageAAP').attr('src', globalMaskClassPaths[3])
-
-    // Angle, Left, Top, ScaleX, ScaleY
-    imgParmsIVD = [0,0,0,2,2]
-    imgParmsPE = [0,0,0,2,2]
-    imgParmsTS = [0,0,0,2,2]
-    imgParmsAAP = [0,0,0,2,2]
-    imgsParmsHolders = [imgParmsIVD,imgParmsPE,imgParmsTS,imgParmsAAP]
-}
-
-/**
- * Reset Btn corresponding image's layer. similar, old function, removable.
- * @param {*} btnObj 
- */
-function resetBtn(btnObj) {
-    if (btnObj.value == "IVD") {$('#imageIVD').attr('src', globalMaskClassPaths[0])}
-    if (btnObj.value == "PE") {$('#imagePE').attr('src', globalMaskClassPaths[1])}
-    if (btnObj.value == "TS") {$('#imageTS').attr('src', globalMaskClassPaths[2])}
-    if (btnObj.value == "AAP") {$('#imageAAP').attr('src', globalMaskClassPaths[3])}
-    alert(btnObj.value + " Image reset!")
-}
-
-/**
- * [Old][Removable] This function will make sure there is only one checkbox is selected under the selected elementName.
- * @param {*} checkbox This is a html checkbox element
- */
-function onlyOne(checkbox) {
-    var checkboxes = document.getElementsByName('typeCheck')
-    checkboxes.forEach((item) => {
-        if (item !== checkbox) {
-            item.checked = false
-            document.getElementById("resetBtn" + item.value).disabled = true
-            document.getElementById("image" + item.value).hidden = true
-            document.getElementById("hideBtn" + item.value).disabled = true
-            document.getElementById("resetPos" + item.value).disabled = true
-            // centerPos(item)
-        }
-    })
-    if (checkbox.checked) {
-        document.getElementById("resetBtn" + checkbox.value).disabled = false
-        document.getElementById("image" + checkbox.value).hidden = false
-        document.getElementById("hideBtn" + checkbox.value).disabled = false
-        document.getElementById("resetPos" + checkbox.value).disabled = false
-
-
-    } else {
-        document.getElementById("resetBtn" + checkbox.value).disabled = true
-        document.getElementById("image" + checkbox.value).hidden = true
-        document.getElementById("hideBtn" + checkbox.value).disabled = true
-        document.getElementById("resetPos" + checkbox.value).disabled = true
-        // centerPos(checkbox)
-    }
-}
-
-/**
- * Checkbox manipulation. Accord to the discussion, multiple selection and image movement should be enable.
- * @param {*} checkbox 
- */
-function onlyOneV2(checkbox) {
-    var checkboxes = document.getElementsByName('typeCheck')
-    var resetBtn = document.getElementById('resetBtn')
-    var saveBtn = document.getElementById('saveBtn')
-
-    checkboxes.forEach((item) => {
-        if (item !== checkbox) {
-            item.checked = false
-            resetBtn.value = ""
-            saveBtn.value = ""
-            removeImg(checkbox.value)            
-        }
-    })
-    if (checkbox.checked) {
-        resetBtn.value = checkbox.value
-        saveBtn.value = checkbox.value
-        showImg(checkbox.value)
-    } else {
-        resetBtn.value = ""
-        saveBtn.value = "" 
-        removeImg(checkbox.value)
-    }
 }
 
 // function to control the behavior of "select all" checkbox

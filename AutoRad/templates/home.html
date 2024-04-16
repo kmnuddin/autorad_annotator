@@ -85,8 +85,8 @@
                             <div>
                                 <button type="button" id="submitImage" class="btn btn-primary" onclick="uploadImage()" disabled>1.Submit</button>
                                 <button type="button" id="editImage" class="btn btn-secondary" onclick="addBKGtoCanvas()" disabled>2.Process</button>
-                                <button type="button" id="processImage" class="btn btn-secondary" onclick="plotAllMasks()">3.Add Masks</button>
-                                <button type="button" id="test" class="btn btn-secondary" onclick="createOptionsMask()">4.test</button>
+                                <button type="button" id="processImage" class="btn btn-secondary" onclick="plotAllMasks()">3.Put Marks</button>
+                                <button type="button" id="test" class="btn btn-secondary" onclick="createOptionsMask()">4.Generated Layers</button>
                             </div>
                         </form>
                     </div>
@@ -94,8 +94,8 @@
 
                 <hr class="my-2">
 
-                <div class = "row">
-                    <!-- Mask Manipulation Zone-->
+                <!-- Mask Manipulation Zone-->
+                <div class = "row">                    
                     <div class="col-md-12 col-xl-12 col-auto">
                         <input type="checkbox" id="selectAllChkBox" class="btn-outline-secondary" onclick="selectAll()" checked="ture">  Select All  </input>
                         <select id="maskSelection" class="btn btn-outline-secondary" disabled="ture">
@@ -110,7 +110,7 @@
                             <button type="button" id="resetBtn" class="btn btn-secondary" onclick="resetMask()" value="">Reset</button>
                             <button type="button" id="saveBtn" class="btn btn-secondary" onclick="saveMask()" value="">Save</button>                                            
                         </p>
-                        <div class="input-group" >
+                        <div class="input-group">
                             <p>
                                 <label style="padding: 0 5px 0 5px">
                                     <span> Left: </span>
@@ -483,11 +483,15 @@
                     stroke: mask.stroke,
                     strokeWidth: 1,
                     //fill: structureColors[cls],
+                    top:mask.top,
+                    left:mask.left,
+                    angle:mask.angle,
                     objectCaching: false,
                     transparentCorners: false,
                     cornerColor: mask.cornerColor,
                     opacity:mask.opacity,
                 });
+                polygon.scale(mask.Scale);
                 canvas.add(polygon);
             }
         })
@@ -502,12 +506,11 @@
             top:mask.top,
             left:mask.left,
             angle:mask.angle,
-            ScaleX:mask.Scale,
-            ScaleY:mask.Scale,
             objectCaching: false,
             cornerColor:mask.cornerColor,
             opacity:mask.opacity,
         });
+        polygon.scale(mask.Scale);
         canvas.add(polygon);
         canvas.renderAll();
     }
