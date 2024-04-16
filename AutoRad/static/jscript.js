@@ -121,8 +121,8 @@ class imgMask {
             top:0,
             left:0,
             angle:0,
-            ScaleX:1,
-            ScaleY:1
+            Scale:1,
+            opacity:0.8
         }
     }
 
@@ -487,3 +487,16 @@ function selectAll() {
         dropdown.disabled = false
     }
 }
+
+//function to extract the mask_list for select image
+function createOptionsMask() {
+    var dropdownList = document.getElementById("maskSelection")
+
+    mask_list.forEach(option => {
+        var opt = document.createElement("option")
+        opt.value=option
+        opt.textContent=option
+        dropdownList.appendChild(opt)
+    })
+}
+

@@ -86,7 +86,7 @@
                                 <button type="button" id="submitImage" class="btn btn-primary" onclick="uploadImage()" disabled>1.Submit</button>
                                 <button type="button" id="editImage" class="btn btn-secondary" onclick="addBKGtoCanvas()" disabled>2.Process</button>
                                 <button type="button" id="processImage" class="btn btn-secondary" onclick="plotAllMasks()">3.Add Masks</button>
-                                <button type="button" id="test" class="btn btn-secondary" onclick="test()">4.test</button>
+                                <button type="button" id="test" class="btn btn-secondary" onclick="createOptionsMask()">4.test</button>
                             </div>
                         </form>
                     </div>
@@ -95,6 +95,7 @@
                 <hr class="my-2">
 
                 <div class = "row">
+                    <!-- Mask Manipulation Zone-->
                     <div class="col-md-12 col-xl-12 col-auto">
                         <input type="checkbox" id="selectAllChkBox" class="btn-outline-secondary" onclick="selectAll()" checked="ture">  Select All  </input>
                         <select id="maskSelection" class="btn btn-outline-secondary" disabled="ture">
@@ -102,6 +103,7 @@
                         </select>
                     </div>
                 </div>
+                <!-- Image Manipulation Zone -->
                 <div class="row">
                     <div class="input-group col-auto col-md-12 col-xl-12 border rounded" style="display: inline-block; padding: 0 10px; margin-top: .5em;"> 
                         <p style = "padding: 5px 0 5px 0">                                            
@@ -109,12 +111,6 @@
                             <button type="button" id="saveBtn" class="btn btn-secondary" onclick="saveImg(this.value)" value="">Save</button>                                            
                         </p>
                         <div class="input-group" >
-                            <p>
-                                <label style="padding: 0 5px 0 5px">
-                                    <span> Angle: </span>
-                                    <input type="range" id="angle-control" value="0" min="0" max="360">
-                                </label>
-                            </p>
                             <p>
                                 <label style="padding: 0 5px 0 5px">
                                     <span> Left: </span>
@@ -129,16 +125,26 @@
                             </p>
                             <p>
                                 <label style="padding: 0 5px 0 5px">
-                                    <span>ScaleX:</span>
-                                    <input type="range" id="scaleX-control" value="1" min="0.1" max="2">
+                                    <span> opacity: </span>
+                                    <input type="range" id="opacity-control" value="0.8" min="0.1" max="1" step="0.05">
+                                </label>
+                            </p>
+                        </div>
+                        <div class="input-group" >
+                            <p>
+                                <label style="padding: 0 5px 0 5px">
+                                    <span> Angle: </span>
+                                    <input type="range" id="angle-control" value="0" min="0" max="360">
                                 </label>
                             </p>
                             <p>
                                 <label style="padding: 0 5px 0 5px">
-                                    <span>ScaleY:</span>
-                                    <input type="range" id="scaleY-control" value="1" min="0.1" max="2">
+                                    <span>Scale:</span>
+                                    <input type="range" id="scale-control" value="1" min="0.1" max="3" step="0.05">
                                 </label>
-                            </p>
+                            </p>                            
+                        </div>
+                        <div class="input-group" >
                             <p>
                                 <label style="padding: 0 5px 0 5px">
                                     <p style="text-align:center; padding:0 5px">board color:</p>
@@ -314,11 +320,55 @@
     canvas.backgroundColor = 'grey';
     fabric.Object.prototype.transparentCorners = false;
     fabric.Object.prototype.centeredScaling = true;
+    fabric.Object.prototype.centeredRotation = true;
     canvas.preserveObjectStacking = true;
+
+    canvas.on({
+        'object:moving': updateControls,
+        'object:scaling': updateControls,
+        'object:resizing': updateControls,
+        'object:rotating': updateControls,
+    })
 
     // window event listener
     window.addEventListener('load', resizeCanvas);
     window.addEventListener('resize', resizeCanvas);
+    document.getElementById("top-control").oninput = function() {
+        if (canvas.getObjects().length == 1) {
+            var obj = canvas.item(0)
+            obj.set("top",parseInt(this.value, 10)).setCoords()
+            canvas.requestRenderAll()
+        }   
+    }
+    document.getElementById("left-control").oninput = function() {
+        if (canvas.getObjects().length == 1) {
+            var obj = canvas.item(0)
+            obj.set("left",parseInt(this.value, 10)).setCoords()
+            canvas.requestRenderAll()
+        }   
+    }
+    document.getElementById("opacity-control").oninput = function() {
+        if (canvas.getObjects().length == 1) {
+            var obj = canvas.item(0)
+            obj.set("opacity",this.value).setCoords()
+            canvas.requestRenderAll()
+        }   
+    }
+    document.getElementById("angle-control").oninput = function() {
+        if (canvas.getObjects().length == 1) {
+            var obj = canvas.item(0)
+            obj.set("angle",parseInt(this.value, 10)).setCoords()
+            canvas.requestRenderAll()
+        }   
+    }
+    document.getElementById("scale-control").oninput = function() {
+        if (canvas.getObjects().length == 1) {
+            var obj = canvas.item(0)
+            obj.scale(this.value).setCoords()
+            canvas.requestRenderAll()
+        }   
+    }
+
 
     // Resize the canvas when the document is loaded and when the window is resized.
     function resizeCanvas() {
@@ -368,10 +418,42 @@
         AAP: 'rgba(255, 255, 255, 0.5)'
     };
     
+    // event listener to track the change of the mask
+    document.addEventListener("DOMContentLoaded", function() {
+        var maskSelection = document.getElementById('maskSelection');
+
+        maskSelection.addEventListener('change', function() {
+            var maskID = this.value;
+
+            if (maskID != "") {
+                canvas.remove(...canvas.getObjects());      // This will not remove background image
+            }
+            var type = maskID.slice(0,-1)
+            var numID = +maskID.substring(maskID.length-1)
+
+            var masks = usersDB[curUserID].images[curImageID][type]
+            
+            for (item in masks) {
+                if (masks[item].id == maskID) {
+                    var mask = masks[item]
+                    break
+                }
+            }
+
+            if (!mask) {
+                console.log("Mask not found!")
+                return
+            }
+
+            loadControls(mask)
+            plotOnePolygon(mask)
+        });
+    });
+
     /**
      * Polygon functions
      */    
-    // Poly all masks on canvas
+    // Polt all masks on canvas
     function plotAllMasks() {
         var imgObj = usersDB[curUserID].images[curImageID];
         mask_list = [];
@@ -399,6 +481,24 @@
                 canvas.add(polygon);
             }
         })
+        canvas.renderAll();
+    }
+
+    // polt one mask on canvas
+    function  plotOnePolygon(mask) {
+        var polygon = new fabric.Polygon(mask.points, {    
+            stroke: 'red',
+            strokeWidth: 1,
+            top:mask.top,
+            left:mask.left,
+            angle:mask.angle,
+            Scale:mask.Scale,
+            //ScaleY:mask.ScaleY,
+            objectCaching: false,
+            cornerColor: 'blue',
+            opacity:mask.opacity,
+        });
+        canvas.add(polygon);
         canvas.renderAll();
     }
 
@@ -678,6 +778,28 @@
         var result = alert("It will be removed and can't be undo")
         canvas.remove(obj)
     }
+
+    function loadControls(mask) {
+        document.getElementById("top-control").value = mask.top;
+        document.getElementById("left-control").value = mask.left;
+        document.getElementById("opacity-control").value = mask.opacity;
+        document.getElementById("angle-control").value = mask.angle;
+        document.getElementById("scale-control").value = mask.Scale;
+        //document.getElementById("scaleY-control").value = mask.ScaleY;        
+    }
+
+    function updateControls() {
+        var canvasObj = canvas.getActiveObject()
+        if (canvasObj) {
+            document.getElementById("top-control").value = canvasObj.top;
+            document.getElementById("left-control").value = canvasObj.left;
+            document.getElementById("opacity-control").value = canvasObj.opacity;
+            document.getElementById("angle-control").value = canvasObj.angle;
+            document.getElementById("scale-control").value = canvasObj.scaleX;
+            //document.getElementById("scaleY-control").value = mask.ScaleY; 
+        }               
+    }
+
 </script>
 
 
