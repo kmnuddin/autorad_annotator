@@ -2,6 +2,7 @@
 {% block title %}Home{% endblock %}
 
 {% block content %}
+{% comment %} <script type="text/javascript" src="./static/require.js"></script> {% endcomment %}
 <script type="text/javascript" src="./static/jscript.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/4.3.1/fabric.min.js"></script>
 <div class="container-fluid">
@@ -78,88 +79,103 @@
                         <form id="imageForm" action="/upload-path/" method="post" enctype="multipart/form-data">
                             {% csrf_token %}
                             <div class="mb-2">
+                                <!-- Image upload button -->
                                 <input type="file" name="image" accept="image/*" class="form-control" id="imageUpload" onchange="handleImageUpload()">
                             </div>
                             <div>
                                 <button type="button" id="submitImage" class="btn btn-primary" onclick="uploadImage()" disabled>1.Submit</button>
-                                <button type="button" id="editImage" class="btn btn-secondary" onclick="editMask()" disabled>2.Edit</button>
-                                {% comment %} <button type="button" id="processImage" class="btn btn-secondary" onclick="addBKGtoCanvas()">3.Overlay</button> {% endcomment %}
+                                <button type="button" id="editImage" class="btn btn-secondary" onclick="addBKGtoCanvas()" disabled>2.Process</button>
+                                <button type="button" id="processImage" class="btn btn-secondary" onclick="plotAllMasks()">3.Add Masks</button>
+                                <button type="button" id="test" class="btn btn-secondary" onclick="test()">4.test</button>
                             </div>
                         </form>
                     </div>
                 </div>
+
                 <hr class="my-2">
+
+                <div class = "row">
+                    <div class="col-md-12 col-xl-12 col-auto">
+                        <input type="checkbox" id="selectAllChkBox" class="btn-outline-secondary" onclick="selectAll()" checked="ture">  Select All  </input>
+                        <select id="maskSelection" class="btn btn-outline-secondary" disabled="ture">
+                            <option id="dropdownDefault" value="">-----  Select a mask to start!  -----</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="input-group col-auto col-md-12 col-xl-12 border rounded" style="display: inline-block; padding: 0 10px; margin-top: .5em;"> 
+                        <p style = "padding: 5px 0 5px 0">                                            
+                            <button type="button" id="resetBtn" class="btn btn-secondary" onclick="resetImg(this.value)" value="">Reset</button>
+                            <button type="button" id="saveBtn" class="btn btn-secondary" onclick="saveImg(this.value)" value="">Save</button>                                            
+                        </p>
+                        <div class="input-group" >
+                            <p>
+                                <label style="padding: 0 5px 0 5px">
+                                    <span> Angle: </span>
+                                    <input type="range" id="angle-control" value="0" min="0" max="360">
+                                </label>
+                            </p>
+                            <p>
+                                <label style="padding: 0 5px 0 5px">
+                                    <span> Left: </span>
+                                    <input type="range" id="left-control" value="0" min="0" max="640">
+                                </label>
+                            </p>
+                            <p>
+                                <label style="padding: 0 5px 0 5px">
+                                    <span> Top: </span>
+                                    <input type="range" id="top-control" value="0" min="0" max="640">
+                                </label>
+                            </p>
+                            <p>
+                                <label style="padding: 0 5px 0 5px">
+                                    <span>ScaleX:</span>
+                                    <input type="range" id="scaleX-control" value="1" min="0.1" max="2">
+                                </label>
+                            </p>
+                            <p>
+                                <label style="padding: 0 5px 0 5px">
+                                    <span>ScaleY:</span>
+                                    <input type="range" id="scaleY-control" value="1" min="0.1" max="2">
+                                </label>
+                            </p>
+                            <p>
+                                <label style="padding: 0 5px 0 5px">
+                                    <p style="text-align:center; padding:0 5px">board color:</p>
+                                    <input type="color" id="boardcolor" >
+                                </label>
+                            </p>
+                            <p>
+                                <label style="padding: 0 5px 0 5px">
+                                    <p style="text-align:center; padding:0 5px"> corner color:</p>
+                                    <input type="color" id="cornercolor">
+                                </label>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <hr class="my-2">
+
                 <div class = "row">
                     <div class="col-md-12 col-xl-12 col-auto">
                         <!-- Canvas Here -->
                         <div class="row">
-                            <div class="col-auto col-md-8 col-xl-8">
-                                <button class="btn btn-outline-secondary" title="Eyedropper tool" onclick="Edit()">
-                                    <i class="bi bi-eyedropper">Edit Selected Ploygon</i>
-                                </button>                                
-                                <div class="canvas-container">
+                            <div class="col-auto col-md-12 col-xl-12">                                
+                                <button class="btn btn-outline-secondary" title="Eyedropper tool" onclick="Edit()">Edit Selected Polygon</button>
+                                <button type="button" id="delBtn" class="btn btn-outline-secondary" onclick="delMask()">Delete Selected Polygon</button>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-auto col-md-12 col-xl-12">
+                                <div id="canvasContainer" class="canvas-container">
                                     <canvas id="c" style="border:1px solid #ccc;"></canvas>                                    
                                 </div>                                
                             </div>
                         </div>
+                        
                         <!-- Image Manipulation Controller Buttons -->
                         <div class="input-group col-auto col-md-3 col-xl-3 border rounded"  style="display: inline-block; padding: 0 10px; margin-top: .5em; margin-left: 10px; margin-right: -5px;">
-                            <p>
-                                <input type="checkbox" name="typeCheck" id="check-ivd" onclick="onlyOneV2(this)" value="IVD">IVD</input>
-                                <input type="checkbox" name="typeCheck" id="check-pe" onclick="onlyOneV2(this)" value="PE">PE</input>                        
-                                <input type="checkbox" name="typeCheck" id="check-ts" onclick="onlyOneV2(this)" value="TS">TS</input>
-                                <input type="checkbox" name="typeCheck" id="check-aap" onclick="onlyOneV2(this)" value="AAP">AAP</input>
-                            </p>
-                            <p>
-                                
-                                <button type="button" id="resetBtn" class="btn btn-secondary" onclick="resetImg(this.value)" value="">Reset</button>
-                                <button type="button" id="saveBtn" class="btn btn-secondary" onclick="saveImg(this.value)" value="">Save</button>
-                                <button type="button" id="delBtn" class="btn btn-secondary" onclick="delImg()" value="">Delete</button>
-                            </p>
-                            <div class="input-group" style="display: inline-block; padding: 0 10px; margin-top: .5em; margin-left: 10px; margin-right: -5px; ">
-                                <p>
-                                    <label>
-                                        <span>Angle:</span>
-                                        <input type="range" id="angle-control" value="0" min="0" max="0">
-                                    </label>
-                                </p>
-                                <p>
-                                    <label>
-                                        <span>Left:</span>
-                                        <input type="range" id="left-control" value="0" min="0" max="640">
-                                    </label>
-                                </p>
-                                <p>
-                                    <label>
-                                        <span>Top:</span>
-                                        <input type="range" id="top-control" value="0" min="0" max="640">
-                                    </label>
-                                </p>
-                                <p>
-                                    <label>
-                                        <span>ScaleX:</span>
-                                        <input type="range" id="scaleX-control" value="1" min="0.1" max="2">
-                                    </label>
-                                </p>
-                                <p>
-                                    <label>
-                                        <span>ScaleY:</span>
-                                        <input type="range" id="scaleY-control" value="1" min="0.1" max="2">
-                                    </label>
-                                </p>
-                                <p>
-                                    <label>
-                                        <span>board color:</span>
-                                        <input type="color" id="boardcolor" style="display: block">
-                                    </label>
-                                </p>
-                                <p>
-                                    <label>
-                                        <span>corner color:</span>
-                                        <input type="color" id="cornercolor" style="display: block">
-                                    </label>
-                                </p>
-                            </div>                        
+                                                    
                         </div>
                     </div>
                 </div>
@@ -280,32 +296,59 @@
 </div>
 
 <script>
-    var canvas = this.__canvas = new fabric.Canvas('c');
+    
+    // Initially disable submit button
+    document.getElementById('submitImage').disabled = true;
+    // Initially disable edit button
+    document.getElementById('editImage').disabled = true;
+
+    // initialization
+    testingCaseIni() // added
 
     // Canvas Global Settings
+    var canvas = this.__canvas = new fabric.Canvas('c');
+
+    //window.addEventListener('load', resizeCanvas);
+    //window.addEventListener('resize', resizeCanvas);
+
     canvas.backgroundColor = 'grey';
     fabric.Object.prototype.transparentCorners = false;
     fabric.Object.prototype.centeredScaling = true;
     canvas.preserveObjectStacking = true;
 
-    testingCaseIni()
-    testingImgIni()
+    // window event listener
+    window.addEventListener('load', resizeCanvas);
+    window.addEventListener('resize', resizeCanvas);
 
-    function editMask() {
-        var mask_path = document.getElementById('imagePlaceholder2').src;
-        var mri_path = document.getElementById('imagePlaceholder1').src;
-        var data = JSON.stringify({'mask_url': mask_path});
-        var csrftoken = getCSRFToken();
-        //canvas = this.__canvas = new fabric.Canvas('c');
+    // Resize the canvas when the document is loaded and when the window is resized.
+    function resizeCanvas() {
+        const container = document.getElementById('canvasContainer');
 
-        var structureColors = {
-            IVD: 'rgba(0, 0, 255, 0.8)', // Note: Alpha is out of 255 here
-            PE: 'rgba(128, 128, 128, 0.5)',
-            TS: 'rgba(192, 192, 192, 0.5)',
-            AAP: 'rgba(255, 255, 255, 0.5)'
-        };
+        var newWidth = container.clientWidth;
 
+        canvas.setWidth(newWidth);
+        canvas.setHeight(newWidth);
+        canvas.renderAll();
+    }
+
+    canvas.renderAll();
+
+    // Zoom in/out function
+    canvas.on('mouse:wheel', function(opt) {
+        var delta = opt.e.deltaY;
+        var zoom = canvas.getZoom();
+        zoom *= 0.999 ** delta;
+        if (zoom > 20) zoom = 20;
+        if (zoom < 0.01) zoom = 0.01;
+        //canvas.zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, zoom);
+        canvas.zoomToPoint(new fabric.Point(canvas.width / 2, canvas.height / 2), zoom);
+        opt.e.preventDefault();
+        opt.e.stopPropagation();
+    });
+
+    function addBKGtoCanvas() {        
         // Set the MRI image as the background of the canvas
+        var mri_path = document.getElementById('imagePlaceholder1').src;
         fabric.Image.fromURL(mri_path, function(img) {
             // Set the image as the background
             canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
@@ -313,48 +356,53 @@
                 scaleY: canvas.height / img.height
             });
         });
-
-        $.ajax({
-            type: 'POST',
-            url: '/api/get-control-points/',
-            data: data,
-            contentType: 'application/json',
-            beforeSend: function (xhr) {
-                if (csrftoken) {
-                    xhr.setRequestHeader("X-CSRFToken", csrftoken);
-                }
-            },
-            success: function (response) {
-            var contours = response.cls_cnt;
-            Object.keys(contours).forEach(function (cls){
-                contours[cls].forEach(function (contour){
-                    var points = contour.map(function (pointWrapper){
-                        var point = pointWrapper[0];
-                        return {x: point[0], y: point[1]};
-                    });
-
-                    masksToImgDB(curUserID,curImageID,cls,points)
-
-                    var polygon = new fabric.Polygon(points, {
-                        stroke: 'red',
-                        strokeWidth: 1,
-                        //fill: structureColors[cls],
-                        objectCaching: false,
-                        transparentCorners: false,
-                        cornerColor: 'blue',
-
-                    });
-                    canvas.add(polygon);
-
-                });
-            });
-
-                canvas.renderAll();
-            }
-
-        });
+        canvas.renderAll();
+        extractMasks();
     }
 
+    // Mask information
+    var structureColors = {
+        IVD: 'rgba(0, 0, 255, 0.8)', // Note: Alpha is out of 255 here
+        PE: 'rgba(128, 128, 128, 0.5)',
+        TS: 'rgba(192, 192, 192, 0.5)',
+        AAP: 'rgba(255, 255, 255, 0.5)'
+    };
+    
+    /**
+     * Polygon functions
+     */    
+    // Poly all masks on canvas
+    function plotAllMasks() {
+        var imgObj = usersDB[curUserID].images[curImageID];
+        mask_list = [];
+
+        ["IVD","PE","TS","AAP"].forEach((item) => {
+            
+            for (let mask in imgObj[item]) {
+                var points = imgObj[item][mask].points
+                var imgTop = imgObj[item][mask].top
+                var imgLeft = imgObj[item][mask].left
+                var imgAngle = imgObj[item][mask].angle
+                var imgScaleX = imgObj[item][mask].ScaleX
+                var imgScaleY = imgObj[item][mask].ScaleY
+                mask_list.push(imgObj[item][mask].id)
+
+                var polygon = new fabric.Polygon(points, {    
+                    stroke: 'red',
+                    strokeWidth: 1,
+                    //fill: structureColors[cls],
+                    objectCaching: false,
+                    transparentCorners: false,
+                    cornerColor: 'blue',
+                    opacity:0.8,
+                });
+                canvas.add(polygon);
+            }
+        })
+        canvas.renderAll();
+    }
+
+    // where do we use this function
     function polygonPositionHandler(dim, finalMatrix, fabricObject) {
         var x = (fabricObject.points[this.pointIndex].x - fabricObject.pathOffset.x),
             y = (fabricObject.points[this.pointIndex].y - fabricObject.pathOffset.y);
@@ -375,6 +423,7 @@
         return new fabric.Point(object.width + stroke.x, object.height + stroke.y);
     }
 
+    // where do we use this function
     function actionHandler(eventData, transform, x, y) {
         var polygon = transform.target,
             currentControl = polygon.controls[polygon.__corner],
@@ -388,7 +437,7 @@
         polygon.points[currentControl.pointIndex] = finalPointPosition;
         return true;
     }
-
+    
     // define a function that can keep the polygon in the same position when we change its
     // width/height/top/left.
     function anchorWrapper(anchorIndex, fn) {
@@ -409,6 +458,7 @@
         }
     }
 
+    // allow edit the each pt in a polygon
     function Edit() {
         canvas.forEachObject(function (obj) {
             if (obj.type === 'polygon') { // Check if it's a polygon
@@ -437,47 +487,55 @@
         canvas.requestRenderAll();
     }
 
-    // Initially disable submit button
-    document.getElementById('submitImage').disabled = true;
-    // Initially disable edit button
-    document.getElementById('editImage').disabled = true;
+    /**
+     * old function editMask.
+     */
+    function editMask() {
+        var mri_path = document.getElementById('imagePlaceholder1').src;
+        var mask_path = document.getElementById('imagePlaceholder2').src;
+        var data = JSON.stringify({'mask_url': mask_path});
+        var csrftoken = getCSRFToken();
 
-    // Zoom in/out function
-    canvas.on('mouse:wheel', function(opt) {
-        var delta = opt.e.deltaY;
-        var zoom = canvas.getZoom();
-        zoom *= 0.999 ** delta;
-        if (zoom > 20) zoom = 20;
-        if (zoom < 0.01) zoom = 0.01;
-        //canvas.zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, zoom);
-        canvas.zoomToPoint(new fabric.Point(canvas.width / 2, canvas.height / 2), zoom);
-        opt.e.preventDefault();
-        opt.e.stopPropagation();
-    });
-    
-    function addBKGtoCanvas() {
-        var imageOrigin = document.getElementById("imagePlaceholder1")
-        var imageBKG = new fabric.Image(imageOrigin,
-        {
-            left:0,
-            top:0,
-            opacity:1
-        })
-        imageBKG.scaleToHeight(canvas.height)
-        canvas.setBackgroundImage(imageBKG,canvas.renderAll.bind(canvas))
+        var imgExistBln = false;    // added
 
-        /*
-        var filter = new fabric.Image.filters.Invert();
+        $.ajax({
+            type: 'POST',
+            url: '/api/get-control-points/',
+            data: data,
+            contentType: 'application/json',
+            beforeSend: function (xhr) {
+                if (csrftoken) {
+                    xhr.setRequestHeader("X-CSRFToken", csrftoken);
+                }
+            },
+            success: function (response) {            
+            
+            var contours = response.cls_cnt;
+            Object.keys(contours).forEach(function (cls){
+                contours[cls].forEach(function (contour){
+                    var points = contour.map(function (pointWrapper){
+                        var point = pointWrapper[0];
+                        return {x: point[0], y: point[1]};
+                    });
 
-        ["IVD","PE","TS","AAP"].forEach((item) => {
-            var tempImg = new fabric.Image(document.getElementById("image" + item),{left:0,top:0,opacity:0,cacheKey:item})
-            tempImg.scaleToHeight(canvas.height)
-            tempImg.filters.push(filter);
-            canvas.add(tempImg)
-            canvas.setActiveObject(tempImg);
-        })
-        */
-        canvas.renderAll()
+                    var polygon = new fabric.Polygon(points, {
+                        stroke: 'red',
+                        strokeWidth: 1,
+                        //fill: structureColors[cls],
+                        objectCaching: false,
+                        transparentCorners: false,
+                        cornerColor: 'blue',
+
+                    });
+                    canvas.add(polygon);
+
+                });
+            });
+
+                canvas.renderAll();
+            }
+
+        });
     }
 
     function showImg(btnValue) {
@@ -615,7 +673,7 @@
         }
     }
 
-    function delImg() {
+    function delMask() {
         var obj = canvas.getActiveObject();
         var result = alert("It will be removed and can't be undo")
         canvas.remove(obj)

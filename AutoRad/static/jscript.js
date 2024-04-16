@@ -1,12 +1,15 @@
+// Global variables to store information
 var curUserID;
 var curImageID;
-
-
-var globalMaskClassPaths = [];
-var structureLayers = [];
+var globalMaskClassPaths = [];  // This variable is used in other places to record the image path, think about pypass this function to DB
 var mask_path;
+var mask_list = [];
 
-/* DB is described below:
+// unknow variables, need validatation or removed.
+var structureLayers = [];
+
+/* DB Schema
+ * DB Schema for testing phrase. The structure is described below:
 
     users = {
         "user_ID1" : {
@@ -51,6 +54,7 @@ var mask_path;
 
 */
 
+// Test users DB to keep all the records and information
 var usersDB = {}
 
 /**
@@ -72,32 +76,26 @@ class user {
         console.log("New user added to database: " + this.userID)
         usersDB[this.userID]=this.userDict
     }
+
+    deleteUser() {
+        delete usersDB[this.userID]
+    }
 }
 
 /**
- * function to generate unique ID
+ * class of image for autoRad. Need modify the file name in future
  */
-function generateUUID(prefixString) {
-    var timeStamp = Date.now().toString(36);
-    var randomValue = Math.random().toString(36).substring(2, 15);
-    return(`${prefixString}-${timeStamp}-${randomValue}`)
-}
-
-/**
- * class of autoRad images.
- */
-
 class autoRadImage {
 
-    constructor(srcString) {
+    constructor(srcString,imgName) {
         this.imgDict = {
             src:srcString,
+            saveName:"unSavedImage.png",    // Purpose to save the name for human readable purpose
             IVD:[],
             PE:[],
             TS:[],
             AAP:[]
         }
-
     }
 
     addToUser(userId) {
@@ -105,10 +103,14 @@ class autoRadImage {
         console.log("New image " + `${this.imageID}` + " added to user: " + userId)
         usersDB[userId].images[this.imageID] = this.imgDict
     }
+
+    delImage(userId) {
+        delete usersDB[userId].images[this.imageID]
+    }
 }
 
 /**
- * Image mask class.
+ * Image mask class. Need some work on initial position.
  */
 class imgMask {
 
@@ -128,10 +130,25 @@ class imgMask {
         console.log("A new "+typeStr+" mask is added under image: " + imageId + " under user: " + userId)
         usersDB[userId].images[imageId][typeStr].push(this.maskDict)
     }
+
+    delMask(userId, imageId, typeStr) {
+        delete usersDB[userId].images[imageId][typeStr]
+    }
+}
+
+
+
+/**
+ * function to generate unique ID with prefix, ID is based on prefx_date_random string
+ */
+function generateUUID(prefixString) {
+    var timeStamp = Date.now().toString(36);
+    var randomValue = Math.random().toString(36).substring(2, 15);
+    return(`${prefixString}-${timeStamp}-${randomValue}`)
 }
 
 /**
- * function to initial userDB with testing user
+ * function to initial testing userDB with testing user (one)
  */
 function testingCaseIni() {
     var testUser = new user("Lijia","12345678")
@@ -141,7 +158,7 @@ function testingCaseIni() {
 }
 
 /**
- * function to initial images with the select image.
+ * [Old]function to initial images with the select image.
  */
 function testingImgIni() {
     var img = new autoRadImage(document.getElementById("imagePlaceholder1").src)
@@ -151,7 +168,7 @@ function testingImgIni() {
 }
 
 /**
- * 
+ * function to add masks to the image selected under logged user
  */
 function masksToImgDB(userID, imgID, typeString, ptsArr) {
 
@@ -159,7 +176,106 @@ function masksToImgDB(userID, imgID, typeString, ptsArr) {
     var idNum = imgs.length
     var maskTemp = new imgMask(typeString,idNum+1, ptsArr)
     maskTemp.addToImage(userID,imgID,typeString)
+}
 
+/**
+ * [Not used]function to check whether the image exists under the curUser using src.
+ * @param {*} userID 
+ * @param {*} src 
+ * @returns 
+ */
+function isImgExist(userID, src) {
+    var imgs = usersDB[userID].images
+    if (Object.keys(imgs).length != 0) {
+        for (let imgId in imgs) {
+            if (imgs[imgId].src == src) {
+                return true
+            }
+        }
+    }
+    return false
+}
+
+/**
+ * function to locate or create the image based on src under current logged user 
+ * return the imageID
+ */
+function getImgID(userID, src) {
+
+    var imgs = usersDB[userID].images
+
+    if (Object.keys(imgs).length != 0) {
+        for (let imgId in imgs) {
+            // console.log(imgId)
+            if (imgs[imgId].src == src) {
+                console.log("Image found in DB: " + imgId)
+                return [true,imgId]
+            }
+        }
+    }    
+
+    var tempImg = new autoRadImage(src)
+    tempImg.addToUser(userID)
+    console.log("New image added to user: " + userID)
+    return [false, tempImg.imageID]
+}
+
+/**
+ * function based on old EditMask function, the API call to obtain the masks information 
+ */
+function extractMasks() {
+
+    var mri_path = document.getElementById('imagePlaceholder1').src;
+    var mask_path = document.getElementById('imagePlaceholder2').src;
+    var data = JSON.stringify({'mask_url': mask_path});
+    var csrftoken = getCSRFToken();
+
+    var imgExistBln = false;    // added
+
+    // Get the original image for DB updates
+    [imgExistBln,curImageID] = getImgID(curUserID,mri_path) // added
+    
+    // API call to obtain the masks information for each componments.
+    if (!imgExistBln) {
+        $.ajax({
+            type: 'POST',
+            url: '/api/get-control-points/',
+            data: data,
+            contentType: 'application/json',
+            beforeSend: function (xhr) {
+                if (csrftoken) {
+                    xhr.setRequestHeader("X-CSRFToken", csrftoken);
+                }
+            },
+            success: function (response) {        
+                var contours = response.cls_cnt;
+                Object.keys(contours).forEach(function (cls){
+                    contours[cls].forEach(function (contour){
+                        var points = contour.map(function (pointWrapper){
+                            var point = pointWrapper[0];
+                            return {x: point[0], y: point[1]};
+                        });
+                        masksToImgDB(curUserID,curImageID,cls,points) // added, log mask information if the img is newly built
+                    });
+                });
+            }
+        });
+    }    
+}
+
+/**
+ * function to save the current DB in json format. Not working. JS file conflict (fabric and require. Or need more work)
+ */
+function saveDBtoJson() {
+    var jsonString = JSON.stringify(usersDB)
+    // var blob = new Blob([jsonString],{type:"application/json"})
+    var fs = require('fs');
+    fs.writeFile("test.json", jsonString, function(err) {
+        if (err) {
+            console.log(err);
+        }
+    });
+    // fileSaver.saveAs(blob, "static/testDB.json")
 }
 
 /**
@@ -180,7 +296,7 @@ function handleImageUpload() {
 }
 
 /**
- * Display upload image function
+ * Display upload image function in image place holder 1. Meanwhile, some button enable/disable.
  */
 function displayUploadedImage() {
     var input = document.getElementById('imageUpload');
@@ -204,6 +320,9 @@ function displayUploadedImage() {
     }
 }
 
+/**
+ * Get CSRF Token from cookies
+ */
 function getCSRFToken() {
     var cookies = document.cookie.split(';');
     for (var i = 0; i < cookies.length; i++) {
@@ -216,7 +335,7 @@ function getCSRFToken() {
 }
 
 /**
- * This function will upload the image to the model and generate the output png files in media folder 
+ * This function will upload the image to the model and generate the components output png files in media folder 
  */
 function uploadImage() {
     var formData = new FormData();
@@ -237,6 +356,7 @@ function uploadImage() {
         success: function(response) {
             // Extract relevant data from the response
             var maskUrl = response.mask_url;
+
             // Second API call: view_mask
             $.ajax({
                 type: 'POST',
@@ -247,8 +367,6 @@ function uploadImage() {
                     $('#imagePlaceholder2').attr('src', viewMaskResponse.mask_url)
                     globalMaskClassPaths = viewMaskResponse.mask_class_paths;
                     mask_path = viewMaskResponse.mask_url;
-                    initalizeImages()
-                    addBKGtoCanvas()
                 },
                 error: function() {
                     console.error('Error calling view_mask API');
@@ -261,7 +379,10 @@ function uploadImage() {
     });
 }
 
-
+/**
+ * Old function. Can be removed
+ * @returns 
+ */
 function initalizeImages() {
     
     if (globalMaskClassPaths.length == 0) {
@@ -284,7 +405,7 @@ function initalizeImages() {
 }
 
 /**
- * Reset Btn corresponding image's layer.
+ * Reset Btn corresponding image's layer. similar, old function, removable.
  * @param {*} btnObj 
  */
 function resetBtn(btnObj) {
@@ -296,7 +417,7 @@ function resetBtn(btnObj) {
 }
 
 /**
- * This function will make sure there is only one checkbox is selected under the selected elementName.
+ * [Old][Removable] This function will make sure there is only one checkbox is selected under the selected elementName.
  * @param {*} checkbox This is a html checkbox element
  */
 function onlyOne(checkbox) {
@@ -327,7 +448,10 @@ function onlyOne(checkbox) {
     }
 }
 
-
+/**
+ * Checkbox manipulation. Accord to the discussion, multiple selection and image movement should be enable.
+ * @param {*} checkbox 
+ */
 function onlyOneV2(checkbox) {
     var checkboxes = document.getElementsByName('typeCheck')
     var resetBtn = document.getElementById('resetBtn')
@@ -349,5 +473,17 @@ function onlyOneV2(checkbox) {
         resetBtn.value = ""
         saveBtn.value = "" 
         removeImg(checkbox.value)
+    }
+}
+
+// function to control the behavior of "select all" checkbox
+function selectAll() {
+    var dropdown = document.getElementById("maskSelection")
+    var checkAllBox = document.getElementById("selectAllChkBox")
+
+    if (checkAllBox.checked) {
+        dropdown.disabled = true
+    } else {
+        dropdown.disabled = false
     }
 }
