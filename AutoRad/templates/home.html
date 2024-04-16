@@ -147,14 +147,14 @@
                         <div class="input-group" >
                             <p>
                                 <label style="padding: 0 5px 0 5px">
-                                    <p style="text-align:center; padding:0 5px">board color:</p>
-                                    <input type="color" id="boardcolor" >
+                                    <p style="text-align:center; padding:0 5px">Stroke color:</p>
+                                    <input type="color" id="strokecolor" value="#ff0000">
                                 </label>
                             </p>
                             <p>
                                 <label style="padding: 0 5px 0 5px">
-                                    <p style="text-align:center; padding:0 5px"> corner color:</p>
-                                    <input type="color" id="cornercolor">
+                                    <p style="text-align:center; padding:0 5px"> Corner color:</p>
+                                    <input type="color" id="cornerColor" value="#0000ff">
                                 </label>
                             </p>
                         </div>
@@ -368,6 +368,20 @@
             canvas.requestRenderAll()
         }   
     }
+    document.getElementById("cornerColor").oninput = function() {
+        if (canvas.getObjects().length == 1) {
+            var obj = canvas.item(0)
+            obj["cornerColor"]=this.value
+            canvas.requestRenderAll()
+        }   
+    }
+    document.getElementById("strokecolor").oninput = function() {
+        if (canvas.getObjects().length == 1) {
+            var obj = canvas.item(0)
+            obj["strokecolor"]=this.value
+            canvas.requestRenderAll()
+        }   
+    }
 
 
     // Resize the canvas when the document is loaded and when the window is resized.
@@ -460,23 +474,19 @@
 
         ["IVD","PE","TS","AAP"].forEach((item) => {
             
-            for (let mask in imgObj[item]) {
-                var points = imgObj[item][mask].points
-                var imgTop = imgObj[item][mask].top
-                var imgLeft = imgObj[item][mask].left
-                var imgAngle = imgObj[item][mask].angle
-                var imgScaleX = imgObj[item][mask].ScaleX
-                var imgScaleY = imgObj[item][mask].ScaleY
-                mask_list.push(imgObj[item][mask].id)
+            for (let index in imgObj[item]) {
+                var mask = imgObj[item][index]
+                var points = mask.points
+                mask_list.push(mask.id)
 
                 var polygon = new fabric.Polygon(points, {    
-                    stroke: 'red',
+                    stroke: mask.stroke,
                     strokeWidth: 1,
                     //fill: structureColors[cls],
                     objectCaching: false,
                     transparentCorners: false,
-                    cornerColor: 'blue',
-                    opacity:0.8,
+                    cornerColor: mask.cornerColor,
+                    opacity:mask.opacity,
                 });
                 canvas.add(polygon);
             }
@@ -485,17 +495,17 @@
     }
 
     // polt one mask on canvas
-    function  plotOnePolygon(mask) {
+    function plotOnePolygon(mask) {
         var polygon = new fabric.Polygon(mask.points, {    
-            stroke: 'red',
+            stroke:mask.stroke,
             strokeWidth: 1,
             top:mask.top,
             left:mask.left,
             angle:mask.angle,
-            Scale:mask.Scale,
-            //ScaleY:mask.ScaleY,
+            ScaleX:mask.Scale,
+            ScaleY:mask.Scale,
             objectCaching: false,
-            cornerColor: 'blue',
+            cornerColor:mask.cornerColor,
             opacity:mask.opacity,
         });
         canvas.add(polygon);
@@ -566,7 +576,7 @@
                 if (obj.edit) {
                     var lastControl = obj.points.length - 1;
                     obj.cornerStyle = 'circle';
-                    obj.cornerColor = 'rgba(0,0,255,0.5)';
+                    obj.cornerColor = '#0000ff';
                     obj.controls = obj.points.reduce(function (acc, point, index) {
                         acc['p' + index] = new fabric.Control({
                             positionHandler: polygonPositionHandler,
@@ -577,7 +587,7 @@
                         return acc;
                     }, {});
                 } else {
-                    obj.cornerColor = 'blue';
+                    obj.cornerColor = '#0000ff';
                     obj.cornerStyle = 'rect';
                     obj.controls = fabric.Object.prototype.controls;
                 }
@@ -626,7 +636,9 @@
         mask.left = parseInt(document.getElementById("left-control").value,10) 
         mask.opacity = parseFloat(document.getElementById("opacity-control").value)
         mask.angle = parseInt(document.getElementById("angle-control").value,10) 
-        mask.scale = parseFloat(document.getElementById("scale-control").value)
+        mask.Scale = parseFloat(document.getElementById("scale-control").value)
+        mask.stroke = document.getElementById("strokecolor").value
+        mask.cornerColor = document.getElementById("cornerColor").value
 
     }
 
@@ -644,6 +656,8 @@
         document.getElementById("opacity-control").value = mask.opacity;
         document.getElementById("angle-control").value = mask.angle;
         document.getElementById("scale-control").value = mask.Scale;
+        document.getElementById("cornerColor").value = mask.cornerColor;
+        document.getElementById("strokecolor").value = mask.stroke;
         //document.getElementById("scaleY-control").value = mask.ScaleY;        
     }
 
@@ -656,7 +670,9 @@
             document.getElementById("opacity-control").value = canvasObj.opacity;
             document.getElementById("angle-control").value = canvasObj.angle;
             document.getElementById("scale-control").value = canvasObj.scaleX;
-            //document.getElementById("scaleY-control").value = mask.ScaleY; 
+            //document.getElementById("scaleY-control").value = mask.ScaleY;
+            document.getElementById("cornerColor").value = canvasObj.cornerColor;
+            document.getElementById("strokecolor").value = canvasObj.stroke; 
         }               
     }
 

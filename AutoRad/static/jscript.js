@@ -122,7 +122,10 @@ class imgMask {
             left:0,
             angle:0,
             Scale:1,
-            opacity:0.8
+            opacity:0.8,
+            // cornColor:"#ff0000",        //red
+            cornerColor:"#0000ff",        //blue
+            stroke:"#ff0000"                //red
         }
     }
 
