@@ -396,7 +396,7 @@
     }
 
     canvas.renderAll();
-
+    
     // Zoom in/out function
     canvas.on('mouse:wheel', function(opt) {
         var delta = opt.e.deltaY;
@@ -469,6 +469,8 @@
      */    
     // Polt all masks on canvas
     function plotAllMasks() {
+
+        removeAllMask()
         var imgObj = usersDB[curUserID].images[curImageID];
         mask_list = [];
 
