@@ -151,8 +151,6 @@ class imgMask {
     }
 }
 
-
-
 /**
  * function to generate unique ID with prefix, ID is based on prefx_date_random string
  */
@@ -409,6 +407,11 @@ function selectAll() {
 //function to extract the mask_list for select image
 function createOptionsMask() {
     var dropdownList = document.getElementById("maskSelection")
+    
+    var index = dropdownList.options.length
+    for (let i=index-1;i>0;i--) {
+        dropdownList.remove(i)
+    }
 
     mask_list.forEach(option => {
         var opt = document.createElement("option")

@@ -378,7 +378,7 @@
     document.getElementById("strokecolor").oninput = function() {
         if (canvas.getObjects().length == 1) {
             var obj = canvas.item(0)
-            obj["strokecolor"]=this.value
+            obj["stroke"]=this.value
             canvas.requestRenderAll()
         }   
     }
