@@ -2,10 +2,13 @@
 {% block title %}Home{% endblock %}
 
 {% block content %}
+{% comment %} <script type="text/javascript" src="./static/require.js"></script> {% endcomment %}
+<script type="text/javascript" src="./static/jscript.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/4.3.1/fabric.min.js"></script>
 <div class="container-fluid">
-     <div class="row flex-nowrap">
+    <div class="row flex-nowrap">
     <!-- Left Nav Bar -->
-     <div class="col-auto col-md-3 col-xl-1 px-sm-2 px-0 bg-dark">
+    <div class="col-auto col-md-2 col-xl-1 px-sm-2 px-0 bg-dark">
         <div class="d-flex flex-column align-items-center align-items-sm-start px-3 pt-2 text-white min-vh-100">
             <a href="/" class="d-flex align-items-center pb-3 mb-md-0 me-md-auto text-white text-decoration-none">
                 <i class="bi bi-radioactive"></i> <span class="fs-5 d-none d-sm-inline">AutoRad</span>
@@ -16,7 +19,6 @@
                         <i class="fs-4 bi-house"></i> <span class="ms-1 d-none d-sm-inline">Home</span>
                     </a>
                 </li>
-
             </ul>
             <hr>
             <div class="dropdown pb-4">
@@ -37,25 +39,20 @@
         </div>
     </div>
 
-
-
-
-
-        <!-- Main content -->
-        <main role="main" class="col-md-9 col-xl-11 ml-sm-auto px-4">
-            <!-- Module Titles -->
-            <div class="row mb-4 align-items-center">
-                <div class="col-md-8">
-                    <h6 class="display-12">Anatomical Segmentation</h6>
-                </div>
-                <div class="col-md-4">
-                    <h6 class="display-12">Severity Assessment</h6>
-                </div>
-                <hr class="my-2">
+    <!-- Main content -->
+    <main role="main" class="col-md-10 col-xl-11 ml-sm-auto px-4">
+        <!-- Module Titles -->
+        <div class="row mb-4 align-items-center">
+            <div class="col-md-8 col-xl-8">
+                <h6 class="display-12">Anatomical Segmentation</h6>
             </div>
+            <div class="col-md-4 col-xl-4">
+                <h6 class="display-12">Severity Assessment</h6>
+            </div>
+            <hr class="my-2">
+        </div>
 
-
-    <!-- Row for Image Placeholders and Severity Assessment Dropdowns -->
+        <!-- Row for Image Placeholders and Severity Assessment Dropdowns -->
         <div class="row">
             <!-- Column for Image Placeholders -->
             <div class="col-md-8">
@@ -82,28 +79,113 @@
                         <form id="imageForm" action="/upload-path/" method="post" enctype="multipart/form-data">
                             {% csrf_token %}
                             <div class="mb-2">
+                                <!-- Image upload button -->
                                 <input type="file" name="image" accept="image/*" class="form-control" id="imageUpload" onchange="handleImageUpload()">
                             </div>
                             <div>
-                                <button type="button" id="submitImage" class="btn btn-primary" onclick="uploadImage()" disabled>Submit</button>
-                                <button type="button" id="editImage" class="btn btn-secondary" onclick="editMask()" disabled>Edit</button>
+                                <button type="button" id="submitImage" class="btn btn-primary" onclick="uploadImage()" disabled>1.Submit</button>
+                                <button type="button" id="editImage" class="btn btn-secondary" onclick="addBKGtoCanvas()" disabled>2.Process</button>
+                                <button type="button" id="processImage" class="btn btn-secondary" onclick="plotAllMasks()">3.Put Marks</button>
+                                <button type="button" id="test" class="btn btn-secondary" onclick="createOptionsMask()">4.Generated Layers</button>
                             </div>
                         </form>
                     </div>
                 </div>
 
-                <div class="row">
-                    <div class="col-md-12 canvas-container position-relative">
-                        <canvas id="c" width="500" height="500" style="border:1px solid #ccc;"></canvas>
-                        <button class="btn btn-outline-secondary position-absolute top-right-btn" title="Eyedropper tool" onclick="Edit()">
-                            <i class="bi bi-eyedropper"></i>
-                        </button>
+                <hr class="my-2">
+
+                <!-- Mask Manipulation Zone-->
+                <div class = "row">                    
+                    <div class="col-md-12 col-xl-12 col-auto">
+                        <input type="checkbox" id="selectAllChkBox" class="btn-outline-secondary" onclick="selectAll()" checked="ture">  Select All  </input>
+                        <select id="maskSelection" class="btn btn-outline-secondary" disabled="ture">
+                            <option id="dropdownDefault" value="">-----  Select a mask to start!  -----</option>
+                        </select>
                     </div>
                 </div>
+                <!-- Image Manipulation Zone -->
+                <div class="row">
+                    <div class="input-group col-auto col-md-12 col-xl-12 border rounded" style="display: inline-block; padding: 0 10px; margin-top: .5em;"> 
+                        <p style = "padding: 5px 0 5px 0">                                            
+                            <button type="button" id="resetBtn" class="btn btn-secondary" onclick="resetMask()" value="">Reset</button>
+                            <button type="button" id="saveBtn" class="btn btn-secondary" onclick="saveMask()" value="">Save</button>                                            
+                        </p>
+                        <div class="input-group">
+                            <p>
+                                <label style="padding: 0 5px 0 5px">
+                                    <span> Left: </span>
+                                    <input type="range" id="left-control" value="0" min="0" max="640">
+                                </label>
+                            </p>
+                            <p>
+                                <label style="padding: 0 5px 0 5px">
+                                    <span> Top: </span>
+                                    <input type="range" id="top-control" value="0" min="0" max="640">
+                                </label>
+                            </p>
+                            <p>
+                                <label style="padding: 0 5px 0 5px">
+                                    <span> opacity: </span>
+                                    <input type="range" id="opacity-control" value="0.8" min="0.1" max="1" step="0.05">
+                                </label>
+                            </p>
+                        </div>
+                        <div class="input-group" >
+                            <p>
+                                <label style="padding: 0 5px 0 5px">
+                                    <span> Angle: </span>
+                                    <input type="range" id="angle-control" value="0" min="0" max="360">
+                                </label>
+                            </p>
+                            <p>
+                                <label style="padding: 0 5px 0 5px">
+                                    <span>Scale:</span>
+                                    <input type="range" id="scale-control" value="1" min="0.1" max="3" step="0.05">
+                                </label>
+                            </p>                            
+                        </div>
+                        <div class="input-group" >
+                            <p>
+                                <label style="padding: 0 5px 0 5px">
+                                    <p style="text-align:center; padding:0 5px">Stroke color:</p>
+                                    <input type="color" id="strokecolor" value="#ff0000">
+                                </label>
+                            </p>
+                            <p>
+                                <label style="padding: 0 5px 0 5px">
+                                    <p style="text-align:center; padding:0 5px"> Corner color:</p>
+                                    <input type="color" id="cornerColor" value="#0000ff">
+                                </label>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <hr class="my-2">
 
-
+                <div class = "row">
+                    <div class="col-md-12 col-xl-12 col-auto">
+                        <!-- Canvas Here -->
+                        <div class="row">
+                            <div class="col-auto col-md-12 col-xl-12">                                
+                                <button class="btn btn-outline-secondary" title="Eyedropper tool" onclick="Edit()">Edit Selected Polygon</button>
+                                <button type="button" id="delBtn" class="btn btn-outline-secondary" onclick="delMask()">Delete Selected Polygon</button>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-auto col-md-12 col-xl-12">
+                                <div id="canvasContainer" class="canvas-container">
+                                    <canvas id="c" style="border:1px solid #ccc;"></canvas>                                    
+                                </div>                                
+                            </div>
+                        </div>
+                        
+                        <!-- Image Manipulation Controller Buttons -->
+                        <div class="input-group col-auto col-md-3 col-xl-3 border rounded"  style="display: inline-block; padding: 0 10px; margin-top: .5em; margin-left: 10px; margin-right: -5px;">
+                                                    
+                        </div>
+                    </div>
+                </div>
             </div>
-
 
             <!-- Column for Severity Assessment Dropdowns -->
             <div class="col-md-4">
@@ -212,264 +294,392 @@
                         <option value="1">Present</option>
                     </select>
                 </div>
-
-
-
-
             </div>
-
         </div>
-     </main>
-
-
-    </div>
+        
+        
+    </main>
+</div>
 
 <script>
+    
+    // Initially disable submit button
+    document.getElementById('submitImage').disabled = true;
+    // Initially disable edit button
+    document.getElementById('editImage').disabled = true;
 
-var globalMaskClassPaths = [];
-var structureLayers = [];
-var mask_path;
+    // initialization
+    testingCaseIni() // added
 
-function handleImageUpload() {
-    var imageInput = document.getElementById('imageUpload');
-    var submitButton = document.getElementById('submitImage');
-    if (imageInput.files && imageInput.files[0]) {
-        // Enable the submit button
-        submitButton.disabled = false;
-        // Display the uploaded image
-        displayUploadedImage();
-    } else {
-        // Disable the submit button if no image is chosen
-        submitButton.disabled = true;
+    // Canvas Global Settings
+    var canvas = this.__canvas = new fabric.Canvas('c');
+
+    //window.addEventListener('load', resizeCanvas);
+    //window.addEventListener('resize', resizeCanvas);
+
+    canvas.backgroundColor = 'grey';
+    fabric.Object.prototype.transparentCorners = false;
+    fabric.Object.prototype.centeredScaling = true;
+    fabric.Object.prototype.centeredRotation = true;
+    canvas.preserveObjectStacking = true;
+
+    canvas.on({
+        'object:moving': updateControls,
+        'object:scaling': updateControls,
+        'object:resizing': updateControls,
+        'object:rotating': updateControls,
+    })
+
+    // window event listener
+    window.addEventListener('load', resizeCanvas);
+    window.addEventListener('resize', resizeCanvas);
+    document.getElementById("top-control").oninput = function() {
+        if (canvas.getObjects().length == 1) {
+            var obj = canvas.item(0)
+            obj.set("top",parseInt(this.value, 10)).setCoords()
+            canvas.requestRenderAll()
+        }   
     }
-}
-
-function displayUploadedImage() {
-    var input = document.getElementById('imageUpload');
-    var editButton = document.getElementById('editImage');
-    if (input.files && input.files[0]) {
-        var reader = new FileReader();
-
-        reader.onload = function(e) {
-            $('#imagePlaceholder1').attr('src', e.target.result);
-        }
-
-        reader.readAsDataURL(input.files[0]);
-        editButton.disabled = false
+    document.getElementById("left-control").oninput = function() {
+        if (canvas.getObjects().length == 1) {
+            var obj = canvas.item(0)
+            obj.set("left",parseInt(this.value, 10)).setCoords()
+            canvas.requestRenderAll()
+        }   
     }
-    else {
-        editButton.disabled = true
+    document.getElementById("opacity-control").oninput = function() {
+        if (canvas.getObjects().length == 1) {
+            var obj = canvas.item(0)
+            obj.set("opacity",this.value).setCoords()
+            canvas.requestRenderAll()
+        }   
     }
-}
-
-function getCSRFToken() {
-    var cookies = document.cookie.split(';');
-    for (var i = 0; i < cookies.length; i++) {
-        var cookie = jQuery.trim(cookies[i]);
-        if (cookie.substring(0, 'csrftoken'.length + 1) === 'csrftoken=') {
-            return decodeURIComponent(cookie.substring('csrftoken'.length + 1));
-        }
+    document.getElementById("angle-control").oninput = function() {
+        if (canvas.getObjects().length == 1) {
+            var obj = canvas.item(0)
+            obj.set("angle",parseInt(this.value, 10)).setCoords()
+            canvas.requestRenderAll()
+        }   
     }
-    return null;
-}
-var canvas;
-function editMask() {
-    var mask_path = document.getElementById('imagePlaceholder2').src;
-    var mri_path = document.getElementById('imagePlaceholder1').src;
-    var data = JSON.stringify({'mask_url': mask_path});
-    var csrftoken = getCSRFToken();
-    canvas = this.__canvas = new fabric.Canvas('c');
+    document.getElementById("scale-control").oninput = function() {
+        if (canvas.getObjects().length == 1) {
+            var obj = canvas.item(0)
+            obj.scale(this.value).setCoords()
+            canvas.requestRenderAll()
+        }   
+    }
+    document.getElementById("cornerColor").oninput = function() {
+        if (canvas.getObjects().length == 1) {
+            var obj = canvas.item(0)
+            obj["cornerColor"]=this.value
+            canvas.requestRenderAll()
+        }   
+    }
+    document.getElementById("strokecolor").oninput = function() {
+        if (canvas.getObjects().length == 1) {
+            var obj = canvas.item(0)
+            obj["stroke"]=this.value
+            canvas.requestRenderAll()
+        }   
+    }
 
+
+    // Resize the canvas when the document is loaded and when the window is resized.
+    function resizeCanvas() {
+        const container = document.getElementById('canvasContainer');
+
+        var newWidth = container.clientWidth;
+
+        canvas.setWidth(newWidth);
+        canvas.setHeight(newWidth);
+        canvas.renderAll();
+    }
+
+    canvas.renderAll();
+    
+    // Zoom in/out function
+    canvas.on('mouse:wheel', function(opt) {
+        var delta = opt.e.deltaY;
+        var zoom = canvas.getZoom();
+        zoom *= 0.999 ** delta;
+        if (zoom > 20) zoom = 20;
+        if (zoom < 0.01) zoom = 0.01;
+        //canvas.zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, zoom);
+        canvas.zoomToPoint(new fabric.Point(canvas.width / 2, canvas.height / 2), zoom);
+        opt.e.preventDefault();
+        opt.e.stopPropagation();
+    });
+
+    function addBKGtoCanvas() {        
+        // Set the MRI image as the background of the canvas
+        var mri_path = document.getElementById('imagePlaceholder1').src;
+        fabric.Image.fromURL(mri_path, function(img) {
+            // Set the image as the background
+            canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
+                scaleX: canvas.width / img.width,
+                scaleY: canvas.height / img.height
+            });
+        });
+        canvas.renderAll();
+        extractMasks();
+    }
+
+    // Mask information
     var structureColors = {
         IVD: 'rgba(64, 64, 64, 0.5)', // Note: Alpha is out of 255 here
         PE: 'rgba(128, 128, 128, 0.5)',
         TS: 'rgba(192, 192, 192, 0.5)',
         AAP: 'rgba(255, 255, 255, 0.5)'
     };
-    // Set the MRI image as the background of the canvas
-    fabric.Image.fromURL(mri_path, function(img) {
-        // Set the image as the background
-        canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
-            scaleX: canvas.width / img.width,
-            scaleY: canvas.height / img.height
+    
+    // event listener to track the change of the mask
+    document.addEventListener("DOMContentLoaded", function() {
+        var maskSelection = document.getElementById('maskSelection');
+
+        maskSelection.addEventListener('change', function() {
+            var maskID = this.value;
+
+            if (maskID != "") {
+                removeAllMask();      // This will not remove background image
+            }
+            var type = maskID.slice(0,-1)
+            //var numID = +maskID.substring(maskID.length-1)
+
+            var masks = usersDB[curUserID].images[curImageID][type]
+            
+            for (item in masks) {
+                if (masks[item].id == maskID) {
+                    var mask = masks[item]
+                    break
+                }
+            }
+
+            if (!mask) {
+                console.log("Mask not found!")
+                return
+            }
+
+            loadControls(mask)
+            plotOnePolygon(mask)
         });
     });
 
-    $.ajax({
-        type: 'POST',
-        url: '/api/get-control-points/',
-        data: data,
-        contentType: 'application/json',
-        beforeSend: function (xhr) {
-            if (csrftoken) {
-                xhr.setRequestHeader("X-CSRFToken", csrftoken);
+    /**
+     * Polygon functions
+     */    
+    // Polt all masks on canvas
+    function plotAllMasks() {
+
+        removeAllMask()
+        var imgObj = usersDB[curUserID].images[curImageID];
+        mask_list = [];
+
+        ["IVD","PE","TS","AAP"].forEach((item) => {
+            
+            for (let index in imgObj[item]) {
+                var mask = imgObj[item][index]
+                var points = mask.points
+                mask_list.push(mask.id)
+
+                var polygon = new fabric.Polygon(points, {    
+                    stroke: mask.stroke,
+                    strokeWidth: 1,
+                    //fill: structureColors[cls],
+                    top:mask.top,
+                    left:mask.left,
+                    angle:mask.angle,
+                    objectCaching: false,
+                    transparentCorners: false,
+                    cornerColor: mask.cornerColor,
+                    opacity:mask.opacity,
+                });
+                polygon.scale(mask.Scale);
+                canvas.add(polygon);
             }
-        },
-        success: function (response) {
-           var contours = response.cls_cnt;
-           Object.keys(contours).forEach(function (cls){
-               contours[cls].forEach(function (contour){
-                   var points = contour.map(function (pointWrapper){
-                       var point = pointWrapper[0];
-                       return {x: point[0], y: point[1]};
-                   });
-
-                   var polygon = new fabric.Polygon(points, {
-                       stroke: 'red',
-                       strokeWidth: 1,
-                       fill: structureColors[cls],
-                       objectCaching: false,
-                       transparentCorners: false,
-                       cornerColor: 'blue',
-
-                   });
-                   canvas.add(polygon);
-
-               });
-           });
-
-            canvas.renderAll();
-        }
-
-    });
-}
-
-function polygonPositionHandler(dim, finalMatrix, fabricObject) {
-	  var x = (fabricObject.points[this.pointIndex].x - fabricObject.pathOffset.x),
-		    y = (fabricObject.points[this.pointIndex].y - fabricObject.pathOffset.y);
-		return fabric.util.transformPoint(
-			{ x: x, y: y },
-      fabric.util.multiplyTransformMatrices(
-        fabricObject.canvas.viewportTransform,
-        fabricObject.calcTransformMatrix()
-      )
-		);
-	}
-
-function getObjectSizeWithStroke(object) {
-    var stroke = new fabric.Point(
-        object.strokeUniform ? 1 / object.scaleX : 1,
-        object.strokeUniform ? 1 / object.scaleY : 1
-    ).multiply(object.strokeWidth);
-    return new fabric.Point(object.width + stroke.x, object.height + stroke.y);
-}
-
-function actionHandler(eventData, transform, x, y) {
-		var polygon = transform.target,
-		    currentControl = polygon.controls[polygon.__corner],
-		    mouseLocalPosition = polygon.toLocalPoint(new fabric.Point(x, y), 'center', 'center'),
-        polygonBaseSize = getObjectSizeWithStroke(polygon),
-				size = polygon._getTransformedDimensions(0, 0),
-				finalPointPosition = {
-					x: mouseLocalPosition.x * polygonBaseSize.x / size.x + polygon.pathOffset.x,
-					y: mouseLocalPosition.y * polygonBaseSize.y / size.y + polygon.pathOffset.y
-				};
-		polygon.points[currentControl.pointIndex] = finalPointPosition;
-		return true;
-	}
-
-  // define a function that can keep the polygon in the same position when we change its
-  // width/height/top/left.
-function anchorWrapper(anchorIndex, fn) {
-    return function(eventData, transform, x, y) {
-      var fabricObject = transform.target,
-          absolutePoint = fabric.util.transformPoint({
-              x: (fabricObject.points[anchorIndex].x - fabricObject.pathOffset.x),
-              y: (fabricObject.points[anchorIndex].y - fabricObject.pathOffset.y),
-          }, fabricObject.calcTransformMatrix()),
-          actionPerformed = fn(eventData, transform, x, y),
-          newDim = fabricObject._setPositionDimensions({}),
-          polygonBaseSize = getObjectSizeWithStroke(fabricObject),
-          newX = (fabricObject.points[anchorIndex].x - fabricObject.pathOffset.x) / polygonBaseSize.x,
-            newY = (fabricObject.points[anchorIndex].y - fabricObject.pathOffset.y) / polygonBaseSize.y;
-      fabricObject.setPositionByOrigin(absolutePoint, newX + 0.5, newY + 0.5);
-      return actionPerformed;
+        })
+        canvas.renderAll();
     }
-}
 
-function Edit() {
-    canvas.forEachObject(function (obj) {
-        if (obj.type === 'polygon') { // Check if it's a polygon
-            obj.edit = !obj.edit; // Toggle edit mode
-            if (obj.edit) {
-                var lastControl = obj.points.length - 1;
-                obj.cornerStyle = 'circle';
-                obj.cornerColor = 'rgba(0,0,255,0.5)';
-                obj.controls = obj.points.reduce(function (acc, point, index) {
-                    acc['p' + index] = new fabric.Control({
-                        positionHandler: polygonPositionHandler,
-                        actionHandler: anchorWrapper(index > 0 ? index - 1 : lastControl, actionHandler),
-                        actionName: 'modifyPolygon',
-                        pointIndex: index
-                    });
-                    return acc;
-                }, {});
-            } else {
-                obj.cornerColor = 'blue';
-                obj.cornerStyle = 'rect';
-                obj.controls = fabric.Object.prototype.controls;
-            }
-            obj.hasBorders = !obj.edit;
+    // polt one mask on canvas
+    function plotOnePolygon(mask) {
+        var polygon = new fabric.Polygon(mask.points, {    
+            stroke:mask.stroke,
+            strokeWidth: 1,
+            top:mask.top,
+            left:mask.left,
+            angle:mask.angle,
+            objectCaching: false,
+            cornerColor:mask.cornerColor,
+            opacity:mask.opacity,
+        });
+        polygon.scale(mask.Scale);
+        canvas.add(polygon);
+        canvas.renderAll();
+    }
+
+    // where do we use this function
+    function polygonPositionHandler(dim, finalMatrix, fabricObject) {
+        var x = (fabricObject.points[this.pointIndex].x - fabricObject.pathOffset.x),
+            y = (fabricObject.points[this.pointIndex].y - fabricObject.pathOffset.y);
+        return fabric.util.transformPoint(
+            { x: x, y: y },
+            fabric.util.multiplyTransformMatrices(
+                fabricObject.canvas.viewportTransform,
+                fabricObject.calcTransformMatrix()
+            )
+        );
+    }
+
+    function getObjectSizeWithStroke(object) {
+        var stroke = new fabric.Point(
+            object.strokeUniform ? 1 / object.scaleX : 1,
+            object.strokeUniform ? 1 / object.scaleY : 1
+        ).multiply(object.strokeWidth);
+        return new fabric.Point(object.width + stroke.x, object.height + stroke.y);
+    }
+
+    // where do we use this function
+    function actionHandler(eventData, transform, x, y) {
+        var polygon = transform.target,
+            currentControl = polygon.controls[polygon.__corner],
+            mouseLocalPosition = polygon.toLocalPoint(new fabric.Point(x, y), 'center', 'center'),
+            polygonBaseSize = getObjectSizeWithStroke(polygon),
+            size = polygon._getTransformedDimensions(0, 0),
+            finalPointPosition = {
+                x: mouseLocalPosition.x * polygonBaseSize.x / size.x + polygon.pathOffset.x,
+                y: mouseLocalPosition.y * polygonBaseSize.y / size.y + polygon.pathOffset.y
+            };
+        polygon.points[currentControl.pointIndex] = finalPointPosition;
+        return true;
+    }
+    
+    // define a function that can keep the polygon in the same position when we change its
+    // width/height/top/left.
+    function anchorWrapper(anchorIndex, fn) {
+        return function(eventData, transform, x, y) {
+            var fabricObject = transform.target,
+                absolutePoint = fabric.util.transformPoint({
+                    x: (fabricObject.points[anchorIndex].x - fabricObject.pathOffset.x),
+                    y: (fabricObject.points[anchorIndex].y - fabricObject.pathOffset.y)
+                }, 
+                fabricObject.calcTransformMatrix()),
+                actionPerformed = fn(eventData, transform, x, y),
+                newDim = fabricObject._setPositionDimensions({}),
+                polygonBaseSize = getObjectSizeWithStroke(fabricObject),
+                newX = (fabricObject.points[anchorIndex].x - fabricObject.pathOffset.x) / polygonBaseSize.x,
+                newY = (fabricObject.points[anchorIndex].y - fabricObject.pathOffset.y) / polygonBaseSize.y;
+            fabricObject.setPositionByOrigin(absolutePoint, newX + 0.5, newY + 0.5);
+            return actionPerformed;
         }
-    });
-    canvas.requestRenderAll();
-}
+    }
 
-
-
-
-
-
-function uploadImage() {
-    var formData = new FormData();
-    formData.append('image', $('#imageUpload')[0].files[0]);
-    var csrftoken = getCSRFToken();
-
-    $.ajax({
-        type: 'POST',
-        url: '/api/process-image/',
-        data: formData,
-        processData: false,
-        contentType: false,
-        beforeSend: function(xhr) {
-            if (csrftoken) {
-                xhr.setRequestHeader("X-CSRFToken", csrftoken);
-            }
-        },
-        success: function(response) {
-            // Extract relevant data from the response
-            var maskUrl = response.mask_url;
-            // Second API call: view_mask
-            $.ajax({
-                type: 'POST',
-                url: '/api/view-mask/',
-                data: { 'mask_url': maskUrl },  // Pass relevant data to the second API
-                success: function(viewMaskResponse) {
-                    // Handle the response of the second API as needed
-                    $('#imagePlaceholder2').attr('src', viewMaskResponse.mask_url)
-                    globalMaskClassPaths = viewMaskResponse.mask_class_paths;
-                    mask_path = viewMaskResponse.mask_url;
-                },
-                error: function() {
-                    console.error('Error calling view_mask API');
+    // allow edit the each pt in a polygon
+    function Edit() {
+        canvas.forEachObject(function (obj) {
+            if (obj.type === 'polygon') { // Check if it's a polygon
+                obj.edit = !obj.edit; // Toggle edit mode
+                if (obj.edit) {
+                    var lastControl = obj.points.length - 1;
+                    obj.cornerStyle = 'circle';
+                    obj.cornerColor = '#0000ff';
+                    obj.controls = obj.points.reduce(function (acc, point, index) {
+                        acc['p' + index] = new fabric.Control({
+                            positionHandler: polygonPositionHandler,
+                            actionHandler: anchorWrapper(index > 0 ? index - 1 : lastControl, actionHandler),
+                            actionName: 'modifyPolygon',
+                            pointIndex: index
+                        });
+                        return acc;
+                    }, {});
+                } else {
+                    obj.cornerColor = '#0000ff';
+                    obj.cornerStyle = 'rect';
+                    obj.controls = fabric.Object.prototype.controls;
                 }
-            });
-        },
-        error: function() {
-            console.error('Error processing image');
+                obj.hasBorders = !obj.edit;
+            }
+        });
+        canvas.requestRenderAll();
+    }
+
+    //remove all masks on the canvas
+    function removeAllMask() {
+        canvas.remove(...canvas.getObjects())
+    }                    
+
+    // reset mask
+    function resetMask() {
+        removeAllMask()
+        var maskID = document.getElementById('maskSelection').value;
+        var type = maskID.slice(0,-1)
+        var masks = usersDB[curUserID].images[curImageID][type]
+        for (item in masks) {
+            if (masks[item].id == maskID) {
+                var mask = masks[item]
+                break
+            }
         }
-    });
-}
 
+        loadControls(mask)
+        plotOnePolygon(mask)
+    }
 
+    // save mask parameters
+    function saveMask() {
 
-// Initially disable submit button
-document.getElementById('submitImage').disabled = true;
-// Initially disable edit button
-document.getElementById('editImage').disabled = true;
+        var maskID = document.getElementById('maskSelection').value;
+        var type = maskID.slice(0,-1)
+        var masks = usersDB[curUserID].images[curImageID][type]
+        for (item in masks) {
+            if (masks[item].id == maskID) {
+                var mask = masks[item]
+                break
+            }
+        }
 
+        mask.top = parseInt(document.getElementById("top-control").value,10)
+        mask.left = parseInt(document.getElementById("left-control").value,10) 
+        mask.opacity = parseFloat(document.getElementById("opacity-control").value)
+        mask.angle = parseInt(document.getElementById("angle-control").value,10) 
+        mask.Scale = parseFloat(document.getElementById("scale-control").value)
+        mask.stroke = document.getElementById("strokecolor").value
+        mask.cornerColor = document.getElementById("cornerColor").value
 
+    }
 
+    // function to brutal delete the active obj on canvas
+    function delMask() {
+        var obj = canvas.getActiveObject();
+        var result = alert("It will be removed and can't be undo")
+        canvas.remove(obj)
+    }
+
+    // use to load the parameters when the mask is first created
+    function loadControls(mask) {
+        document.getElementById("top-control").value = mask.top;
+        document.getElementById("left-control").value = mask.left;
+        document.getElementById("opacity-control").value = mask.opacity;
+        document.getElementById("angle-control").value = mask.angle;
+        document.getElementById("scale-control").value = mask.Scale;
+        document.getElementById("cornerColor").value = mask.cornerColor;
+        document.getElementById("strokecolor").value = mask.stroke;
+        //document.getElementById("scaleY-control").value = mask.ScaleY;        
+    }
+
+    // function to dynamic track the object manipulation
+    function updateControls() {
+        var canvasObj = canvas.getActiveObject()
+        if (canvasObj) {
+            document.getElementById("top-control").value = canvasObj.top;
+            document.getElementById("left-control").value = canvasObj.left;
+            document.getElementById("opacity-control").value = canvasObj.opacity;
+            document.getElementById("angle-control").value = canvasObj.angle;
+            document.getElementById("scale-control").value = canvasObj.scaleX;
+            //document.getElementById("scaleY-control").value = mask.ScaleY;
+            document.getElementById("cornerColor").value = canvasObj.cornerColor;
+            document.getElementById("strokecolor").value = canvasObj.stroke; 
+        }               
+    }
 
 </script>
 

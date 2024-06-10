@@ -1,0 +1,78 @@
+body, html {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow-x: hidden; /* Prevent scroll on x-axis */
+}
+
+.annotation-canvas {
+    display: flex;
+    justify-content: center; /* This will center the canvas */
+}
+
+.annotation-controls {
+    margin-bottom: 1rem; /* Adds some space between the controls and the canvas */
+}
+
+#annotation-canvas {
+    border: 1px solid #cccccc; /* A border to make the canvas visible */
+    /* Set a fixed size for your canvas or make it responsive as per your requirement */
+    width: 320px;
+    height: 320px;
+}
+
+
+/* Adjust the margin when the sidebar is toggled */
+#wrapper.toggled #content-wrapper {
+    margin-left: 100px;
+}
+
+/* Custom styles for branding */
+.sidebar .sidebar-brand {
+    height: 4.375rem; /* Height of the topbar */
+    padding: 1rem 0.5rem; /* Padding around the brand */
+}
+.wrapper {
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+.fixed-width-label {
+    width: 220px; /* Adjust this width as needed */
+    font-size: 0.8em;
+}
+.small-font{
+    font-size: 0.8em;
+}
+#content {
+    flex: 1 0 auto;
+}
+#footer {
+    flex-shrink: 0;
+}
+
+.canvas-container {
+    display: flex;
+    justify-content: center;
+    position: relative;
+    max-width: 640px;
+    max-height: 640px;
+    margin-top: 20px;
+    margin-bottom: 20px;
+    border: 1px solid #ccc;
+}
+
+.top-right-btn {
+    top: 10px; /* Adjust as needed */
+    right: 10px; /* Adjust as needed */
+    z-index: 10; /* Ensure the button stays on top of other elements */
+}
+
+#c {
+    /* display: block; */
+    max-width: 640px; 
+    max-height: 640px;
+    width: 100%;
+    height:100%;
+    position:absolute;
+}
