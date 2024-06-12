@@ -16,18 +16,35 @@ Including another URLconf
 from django.contrib import admin
 from django.conf import settings
 from django.conf.urls.static import static
-from django.urls import path
+from django.urls import path, include, reverse_lazy
+from django.contrib.auth.views import LogoutView, LoginView
+from django.contrib.auth.forms import UserCreationForm
+from django.views.generic.edit import CreateView
 from AutoRad.views import home, upload_image, process_image, view_mask, get_control_points
 
 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+
+    # Auth related paths
+    path('accounts/login/', LoginView.as_view(template_name='registration/login.html'), name='login'),
+    path('accounts/logout/', LogoutView.as_view(next_page=reverse_lazy('login')), name='logout'),
+    path('accounts/signup/', CreateView.as_view(
+        template_name='registration/signup.html',
+        form_class=UserCreationForm,
+        success_url=reverse_lazy('login')
+    ), name='signup'),
+
+    # Include default Django auth URLs for good measure (includes password reset)
+    path('accounts/', include('django.contrib.auth.urls')),
+
+    # Application paths
     path('', home, name='home'),
     path('upload-path/', upload_image, name='upload_image'),
     path('api/process-image/', process_image, name='process_image'),
     path('api/view-mask/', view_mask, name='view_mask'),
-    path('api/get-control-points/', get_control_points, name='get_control_points')
+    path('api/get-control-points/', get_control_points, name='get_control_points'),
 ]
 
 if settings.DEBUG:
