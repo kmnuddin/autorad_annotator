@@ -18,9 +18,8 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path, include, reverse_lazy
 from django.contrib.auth.views import LogoutView, LoginView
-from django.contrib.auth.forms import UserCreationForm
-from django.views.generic.edit import CreateView
-from AutoRad.views import home, upload_image, process_image, view_mask, get_control_points
+
+from AutoRad.views import home, upload_image, process_image, view_mask, get_control_points, SignUpView
 
 
 
@@ -30,11 +29,7 @@ urlpatterns = [
     # Auth related paths
     path('accounts/login/', LoginView.as_view(template_name='registration/login.html'), name='login'),
     path('accounts/logout/', LogoutView.as_view(next_page=reverse_lazy('login')), name='logout'),
-    path('accounts/signup/', CreateView.as_view(
-        template_name='registration/signup.html',
-        form_class=UserCreationForm,
-        success_url=reverse_lazy('login')
-    ), name='signup'),
+    path('accounts/signup/', SignUpView.as_view(), name='signup'),
 
     # Include default Django auth URLs for good measure (includes password reset)
     path('accounts/', include('django.contrib.auth.urls')),

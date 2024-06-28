@@ -1,6 +1,10 @@
 import numpy as np
 from django.shortcuts import render
 from django.core.files.storage import FileSystemStorage
+from django.contrib.auth.forms import UserCreationForm
+from django.views.generic.edit import CreateView
+from django.urls import reverse_lazy
+from django.contrib.auth import login
 from urllib.parse import unquote
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -11,8 +15,24 @@ from .model import model, device
 import matplotlib.pyplot as plt
 from django.conf import settings
 import os
+import logging
+import json
 
 from django.contrib.auth.decorators import login_required
+
+from django.views.decorators.csrf import csrf_exempt
+
+class SignUpView(CreateView):
+    form_class = UserCreationForm
+    template_name = 'registration/signup.html'
+    success_url = reverse_lazy('home')  # Redirect to the home page after signup
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        user = form.save()
+        print("User created:", user.username)
+        login(self.request, user)  # Automatically log in the user after registration
+        return response
 
 @login_required
 def home(request):
@@ -29,9 +49,24 @@ def upload_image(request):
 
     return render(request, 'home.html', context)
 
+logger = logging.getLogger(__name__)
+
+# @api_view(['POST'])
+# def view_mask(request):
+#     try:
+#         data = json.loads(request.body)
+#         mask_url = data['mask_url']
+#         logger.info('Received mask URL: %s', mask_url)
+#         # Process the mask_url as needed
+#         return JsonResponse({'status': 'success', 'mask_url': mask_url})
+#     except Exception as e:
+#         logger.error('Error processing view_mask: %s', e)
+#         return JsonResponse({'error': 'Error processing request'}, status=400)
 
 @api_view(['POST'])
 def view_mask(request):
+
+    print('called view_mask')
     mask_path = request.data.get('mask_url')
     filename = unquote(mask_path).split('/')[-1]
     mask_load_path = os.path.join(settings.MEDIA_ROOT, filename)

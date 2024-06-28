@@ -374,15 +374,20 @@ function uploadImage() {
             $.ajax({
                 type: 'POST',
                 url: '/api/view-mask/',
-                data: { 'mask_url': maskUrl },  // Pass relevant data to the second API
+                data: JSON.stringify({ 'mask_url': maskUrl }),  // Pass relevant data to the second API
+                contentType: 'application/json',
+                beforeSend: function(xhr) {
+                    if (csrftoken) {
+                        xhr.setRequestHeader("X-CSRFToken", csrftoken);
+                    }
+                },
                 success: function(viewMaskResponse) {
-                    // Handle the response of the second API as needed
                     $('#imagePlaceholder2').attr('src', viewMaskResponse.mask_url)
                     globalMaskClassPaths = viewMaskResponse.mask_class_paths;
                     mask_path = viewMaskResponse.mask_url;
                 },
-                error: function() {
-                    console.error('Error calling view_mask API');
+                error: function(xhr, status, error) {
+                    console.error('Failed to call view_mask:', xhr.responseText, status, error);
                 }
             });
         },
