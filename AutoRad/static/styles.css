@@ -68,9 +68,18 @@ body, html {
     z-index: 10; /* Ensure the button stays on top of other elements */
 }
 
-#c {
+#c1 {
     /* display: block; */
     max-width: 640px; 
+    max-height: 640px;
+    width: 100%;
+    height:100%;
+    position:absolute;
+}
+
+#c2 {
+    /* display: block; */
+    max-width: 640px;
     max-height: 640px;
     width: 100%;
     height:100%;

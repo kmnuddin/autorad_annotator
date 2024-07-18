@@ -116,7 +116,7 @@ class imgMask {
 
     constructor(typeStr,idNum,ptArr) {
 
-        var canvasWidth = parseInt(document.getElementById("c").style.width.slice(0,-2))
+        var canvasWidth = parseInt(document.getElementById("c1").style.width.slice(0,-2))
         var scaleRatio = canvasWidth/500
 
         var minLeft = canvasWidth;

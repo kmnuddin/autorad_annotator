@@ -168,10 +168,15 @@
                             </div>
                         </div>
                         <div class="row">
-                            <div class="col-auto col-md-12 col-xl-12">
-                                <div id="canvasContainer" class="canvas-container">
-                                    <canvas id="c" style="border:1px solid #ccc;"></canvas>                                    
+                            <div class="col-auto col-md-6 col-xl-6">
+                                <div id="canvasContainer1" class="canvas-container">
+                                    <canvas id="c1" style="border:1px solid #ccc;"></canvas>
                                 </div>                                
+                            </div>
+                            <div class="col-auto col-md-6 col-xl-6">
+                                <div id="canvasContainer2" class="canvas-container">
+                                    <canvas id="c2" style="border:1px solid #ccc;"></canvas>
+                                </div>
                             </div>
                         </div>
                         
@@ -192,27 +197,34 @@
 
 <script>
     
-    // Initially disable submit button
+ // Initially disable submit button
     document.getElementById('submitImage').disabled = true;
     // Initially disable edit button
     document.getElementById('editImage').disabled = true;
+
 
     // initialization
     testingCaseIni() // added
 
     // Canvas Global Settings
-    var canvas = this.__canvas = new fabric.Canvas('c');
+    var canvas1 = this.__canvas = new fabric.Canvas('c1');
+    var canvas2 = new fabric.Canvas('c2');
+
+    canvas2.interactive = false;
+    canvas2.selection = false;
 
     //window.addEventListener('load', resizeCanvas);
     //window.addEventListener('resize', resizeCanvas);
 
-    canvas.backgroundColor = 'grey';
+    canvas1.backgroundColor = 'grey';
+    canvas2.backgroundColor = 'grey';
     fabric.Object.prototype.transparentCorners = false;
     fabric.Object.prototype.centeredScaling = true;
     fabric.Object.prototype.centeredRotation = true;
-    canvas.preserveObjectStacking = true;
+    canvas1.preserveObjectStacking = true;
+    canvas2.preserveObjectStacking = true;
 
-    canvas.on({
+    canvas1.on({
         'object:moving': updateControls,
         'object:scaling': updateControls,
         'object:resizing': updateControls,
@@ -223,93 +235,98 @@
     window.addEventListener('load', resizeCanvas);
     window.addEventListener('resize', resizeCanvas);
     document.getElementById("top-control").oninput = function() {
-        if (canvas.getObjects().length == 1) {
-            var obj = canvas.item(0)
+        if (canvas1.getObjects().length == 1) {
+            var obj = canvas1.item(0)
             obj.set("top",parseInt(this.value, 10)).setCoords()
-            canvas.requestRenderAll()
-        }   
+            canvas1.requestRenderAll()
+        }
     }
     document.getElementById("left-control").oninput = function() {
-        if (canvas.getObjects().length == 1) {
-            var obj = canvas.item(0)
+        if (canvas1.getObjects().length == 1) {
+            var obj = canvas1.item(0)
             obj.set("left",parseInt(this.value, 10)).setCoords()
-            canvas.requestRenderAll()
-        }   
+            canvas1.requestRenderAll()
+        }
     }
     document.getElementById("opacity-control").oninput = function() {
-        if (canvas.getObjects().length == 1) {
-            var obj = canvas.item(0)
+        if (canvas1.getObjects().length == 1) {
+            var obj = canvas1.item(0)
             obj.set("opacity",this.value).setCoords()
-            canvas.requestRenderAll()
-        }   
+            canvas1.requestRenderAll()
+        }
     }
     document.getElementById("angle-control").oninput = function() {
-        if (canvas.getObjects().length == 1) {
-            var obj = canvas.item(0)
+        if (canvas1.getObjects().length == 1) {
+            var obj = canvas1.item(0)
             obj.set("angle",parseInt(this.value, 10)).setCoords()
-            canvas.requestRenderAll()
-        }   
+            canvas1.requestRenderAll()
+        }
     }
     document.getElementById("scale-control").oninput = function() {
-        if (canvas.getObjects().length == 1) {
-            var obj = canvas.item(0)
+        if (canvas1.getObjects().length == 1) {
+            var obj = canvas1.item(0)
             obj.scale(this.value).setCoords()
-            canvas.requestRenderAll()
-        }   
+            canvas1.requestRenderAll()
+        }
     }
     document.getElementById("cornerColor").oninput = function() {
-        if (canvas.getObjects().length == 1) {
-            var obj = canvas.item(0)
+        if (canvas1.getObjects().length == 1) {
+            var obj = canvas1.item(0)
             obj["cornerColor"]=this.value
-            canvas.requestRenderAll()
-        }   
+            canvas1.requestRenderAll()
+        }
     }
     document.getElementById("strokecolor").oninput = function() {
-        if (canvas.getObjects().length == 1) {
-            var obj = canvas.item(0)
+        if (canvas1.getObjects().length == 1) {
+            var obj = canvas1.item(0)
             obj["stroke"]=this.value
-            canvas.requestRenderAll()
-        }   
+            canvas1.requestRenderAll()
+        }
     }
 
 
-    // Resize the canvas when the document is loaded and when the window is resized.
+    // Resize the canvas1 when the document is loaded and when the window is resized.
     function resizeCanvas() {
-        const container = document.getElementById('canvasContainer');
+        const container = document.getElementById('canvasContainer1');
+
 
         var newWidth = container.clientWidth;
 
-        canvas.setWidth(newWidth);
-        canvas.setHeight(newWidth);
-        canvas.renderAll();
+        canvas1.setWidth(newWidth);
+        canvas1.setHeight(newWidth);
+        canvas1.renderAll();
+
+        canvas2.setWidth(newWidth);
+        canvas2.setHeight(newWidth);
+        canvas2.renderAll();
     }
 
-    canvas.renderAll();
-    
+    canvas1.renderAll();
+
     // Zoom in/out function
-    canvas.on('mouse:wheel', function(opt) {
+    canvas1.on('mouse:wheel', function(opt) {
         var delta = opt.e.deltaY;
-        var zoom = canvas.getZoom();
+        var zoom = canvas1.getZoom();
         zoom *= 0.999 ** delta;
         if (zoom > 20) zoom = 20;
         if (zoom < 0.01) zoom = 0.01;
-        //canvas.zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, zoom);
-        canvas.zoomToPoint(new fabric.Point(canvas.width / 2, canvas.height / 2), zoom);
+        //canvas1.zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, zoom);
+        canvas1.zoomToPoint(new fabric.Point(canvas1.width / 2, canvas1.height / 2), zoom);
         opt.e.preventDefault();
         opt.e.stopPropagation();
     });
 
-    function addBKGtoCanvas() {        
-        // Set the MRI image as the background of the canvas
+    function addBKGtoCanvas() {
+        // Set the MRI image as the background of the canvas1
         var mri_path = document.getElementById('imagePlaceholder1').src;
         fabric.Image.fromURL(mri_path, function(img) {
             // Set the image as the background
-            canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
-                scaleX: canvas.width / img.width,
-                scaleY: canvas.height / img.height
+            canvas1.setBackgroundImage(img, canvas1.renderAll.bind(canvas1), {
+                scaleX: canvas1.width / img.width,
+                scaleY: canvas1.height / img.height
             });
         });
-        canvas.renderAll();
+        canvas1.renderAll();
         extractMasks();
     }
 
@@ -320,7 +337,7 @@
         TS: 'rgba(192, 192, 192, 0.5)',
         AAP: 'rgba(255, 255, 255, 0.5)'
     };
-    
+
     // event listener to track the change of the mask
     document.addEventListener("DOMContentLoaded", function() {
         var maskSelection = document.getElementById('maskSelection');
@@ -335,7 +352,7 @@
             //var numID = +maskID.substring(maskID.length-1)
 
             var masks = usersDB[curUserID].images[curImageID][type]
-            
+
             for (item in masks) {
                 if (masks[item].id == maskID) {
                     var mask = masks[item]
@@ -355,8 +372,8 @@
 
     /**
      * Polygon functions
-     */    
-    // Polt all masks on canvas
+     */
+    // Polt all masks on canvas1
     function plotAllMasks() {
 
         removeAllMask()
@@ -364,16 +381,16 @@
         mask_list = [];
 
         ["IVD","PE","TS","AAP"].forEach((item) => {
-            
+
             for (let index in imgObj[item]) {
                 var mask = imgObj[item][index]
                 var points = mask.points
                 mask_list.push(mask.id)
 
-                var polygon = new fabric.Polygon(points, {    
+                var polygon = new fabric.Polygon(points, {
                     stroke: mask.stroke,
                     strokeWidth: 1,
-                    //fill: structureColors[cls],
+                    fill: structureColors[item],
                     top:mask.top,
                     left:mask.left,
                     angle:mask.angle,
@@ -383,15 +400,17 @@
                     opacity:mask.opacity,
                 });
                 polygon.scale(mask.Scale);
-                canvas.add(polygon);
+                canvas1.add(polygon);
+                {#canvas2.add(polygon);#}
             }
         })
-        canvas.renderAll();
+        canvas1.renderAll();
+        {#canvas2.renderAll();#}
     }
 
-    // polt one mask on canvas
+    // polt one mask on canvas1
     function plotOnePolygon(mask) {
-        var polygon = new fabric.Polygon(mask.points, {    
+        var polygon = new fabric.Polygon(mask.points, {
             stroke:mask.stroke,
             strokeWidth: 1,
             top:mask.top,
@@ -402,8 +421,8 @@
             opacity:mask.opacity,
         });
         polygon.scale(mask.Scale);
-        canvas.add(polygon);
-        canvas.renderAll();
+        canvas1.add(polygon);
+        canvas1.renderAll();
     }
 
     // where do we use this function
@@ -441,7 +460,7 @@
         polygon.points[currentControl.pointIndex] = finalPointPosition;
         return true;
     }
-    
+
     // define a function that can keep the polygon in the same position when we change its
     // width/height/top/left.
     function anchorWrapper(anchorIndex, fn) {
@@ -450,7 +469,7 @@
                 absolutePoint = fabric.util.transformPoint({
                     x: (fabricObject.points[anchorIndex].x - fabricObject.pathOffset.x),
                     y: (fabricObject.points[anchorIndex].y - fabricObject.pathOffset.y)
-                }, 
+                },
                 fabricObject.calcTransformMatrix()),
                 actionPerformed = fn(eventData, transform, x, y),
                 newDim = fabricObject._setPositionDimensions({}),
@@ -464,7 +483,7 @@
 
     // allow edit the each pt in a polygon
     function Edit() {
-        canvas.forEachObject(function (obj) {
+        canvas1.forEachObject(function (obj) {
             if (obj.type === 'polygon') { // Check if it's a polygon
                 obj.edit = !obj.edit; // Toggle edit mode
                 if (obj.edit) {
@@ -488,13 +507,13 @@
                 obj.hasBorders = !obj.edit;
             }
         });
-        canvas.requestRenderAll();
+        canvas1.requestRenderAll();
     }
 
-    //remove all masks on the canvas
+    //remove all masks on the canvas1
     function removeAllMask() {
-        canvas.remove(...canvas.getObjects())
-    }                    
+        canvas1.remove(...canvas1.getObjects())
+    }
 
     // reset mask
     function resetMask() {
@@ -527,20 +546,20 @@
         }
 
         mask.top = parseInt(document.getElementById("top-control").value,10)
-        mask.left = parseInt(document.getElementById("left-control").value,10) 
+        mask.left = parseInt(document.getElementById("left-control").value,10)
         mask.opacity = parseFloat(document.getElementById("opacity-control").value)
-        mask.angle = parseInt(document.getElementById("angle-control").value,10) 
+        mask.angle = parseInt(document.getElementById("angle-control").value,10)
         mask.Scale = parseFloat(document.getElementById("scale-control").value)
         mask.stroke = document.getElementById("strokecolor").value
         mask.cornerColor = document.getElementById("cornerColor").value
 
     }
 
-    // function to brutal delete the active obj on canvas
+    // function to brutal delete the active obj on canvas1
     function delMask() {
-        var obj = canvas.getActiveObject();
+        var obj = canvas1.getActiveObject();
         var result = alert("It will be removed and can't be undo")
-        canvas.remove(obj)
+        canvas1.remove(obj)
     }
 
     // use to load the parameters when the mask is first created
@@ -552,24 +571,64 @@
         document.getElementById("scale-control").value = mask.Scale;
         document.getElementById("cornerColor").value = mask.cornerColor;
         document.getElementById("strokecolor").value = mask.stroke;
-        //document.getElementById("scaleY-control").value = mask.ScaleY;        
+        //document.getElementById("scaleY-control").value = mask.ScaleY;
     }
 
     // function to dynamic track the object manipulation
     function updateControls() {
-        var canvasObj = canvas.getActiveObject()
-        if (canvasObj) {
-            document.getElementById("top-control").value = canvasObj.top;
-            document.getElementById("left-control").value = canvasObj.left;
-            document.getElementById("opacity-control").value = canvasObj.opacity;
-            document.getElementById("angle-control").value = canvasObj.angle;
-            document.getElementById("scale-control").value = canvasObj.scaleX;
+        var canvas1Obj = canvas1.getActiveObject()
+        if (canvas1Obj) {
+            document.getElementById("top-control").value = canvas1Obj.top;
+            document.getElementById("left-control").value = canvas1Obj.left;
+            document.getElementById("opacity-control").value = canvas1Obj.opacity;
+            document.getElementById("angle-control").value = canvas1Obj.angle;
+            document.getElementById("scale-control").value = canvas1Obj.scaleX;
             //document.getElementById("scaleY-control").value = mask.ScaleY;
-            document.getElementById("cornerColor").value = canvasObj.cornerColor;
-            document.getElementById("strokecolor").value = canvasObj.stroke; 
-        }               
+            document.getElementById("cornerColor").value = canvas1Obj.cornerColor;
+            document.getElementById("strokecolor").value = canvas1Obj.stroke;
+        }
     }
 
+    // Sync changes from canvas1 to canvas2 without copying the background image
+    function syncCanvases(sourceCanvas, targetCanvas) {
+        sourceCanvas.on('object:modified', function() {
+            replicateObjectsOnly(sourceCanvas, targetCanvas);
+        });
+        sourceCanvas.on('object:added', function() {
+            replicateObjectsOnly(sourceCanvas, targetCanvas);
+        });
+        sourceCanvas.on('object:removed', function() {
+            replicateObjectsOnly(sourceCanvas, targetCanvas);
+        });
+    }
+
+    // Function to replicate only objects (excluding background image)
+    function replicateObjectsOnly(sourceCanvas, targetCanvas) {
+        // Clear the target canvas first
+        targetCanvas.clear();
+        targetCanvas.setBackgroundColor('black', targetCanvas.renderAll.bind(targetCanvas));
+        // Add only object items, not the background
+        sourceCanvas.getObjects().forEach(function(obj) {
+            // Clone each object and then add to target canvas
+            var clone;
+            obj.clone(function(clonedObj) {
+                clone = clonedObj;
+            });
+
+            // Set the clone as non-interactive
+            clone.selectable = false;
+            clone.evented = false;
+
+            // Add the cloned object to the target canvas
+            targetCanvas.add(clone);
+        });
+
+        // Render the target canvas
+        targetCanvas.renderAll();
+    }
+
+    replicateObjectsOnly(canvas1, canvas2); // Initial replication to sync any pre-existing objects
+    syncCanvases(canvas1, canvas2);
 </script>
 
 
