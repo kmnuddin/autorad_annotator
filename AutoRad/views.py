@@ -11,7 +11,7 @@ from rest_framework.response import Response
 from django.http import JsonResponse
 import cv2
 import torch
-from .model import model, device
+from .utils import model, device
 import matplotlib.pyplot as plt
 from django.conf import settings
 import os
