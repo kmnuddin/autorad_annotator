@@ -25,7 +25,7 @@ class imgClass(models.Model):
     imgFile = models.ImageField(upload_to='media')
     width = models.IntegerField(help_text="Width in px",default=320)
     height = models.IntegerField(help_text="height in px",default=320)
-    format = models.CharField(max_length=10,default="jpg")
+    format = models.CharField(max_length=10,default="image/png")
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)    
     

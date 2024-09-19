@@ -17,9 +17,13 @@ from django.conf import settings
 import os
 import logging
 import json
+from django.contrib import messages
+from django.http import HttpResponse
+
+# import customized class models
+from .models import patientClass,reportClass,imgClass,maskClass
 
 from django.contrib.auth.decorators import login_required
-
 from django.views.decorators.csrf import csrf_exempt
 
 class SignUpView(CreateView):
@@ -38,6 +42,7 @@ class SignUpView(CreateView):
 def home(request):
     return render(request, 'home.html')
 
+## Looks like this view is not in use....
 def upload_image(request):
     context = {}
     if request.method == 'POST' and request.FILES['image']:
@@ -46,7 +51,17 @@ def upload_image(request):
         filename = fs.save(image.name, image)
         image_url = fs.url(filename)
         context['image_url'] = image_url
-
+        
+        imgDB = imgClass()
+        image = request.FILES['image']
+        imgDB.imgFile = image
+        imgDB.imgName = image.name
+        imgDB.format = image.type
+        imgDB.width = image.width
+        imgDB.height = image.height
+        imgDB.save()
+        
+        
     return render(request, 'home.html', context)
 
 logger = logging.getLogger(__name__)
@@ -112,7 +127,6 @@ def get_control_points(request):
 
     return JsonResponse({'cls_cnt': structure_cnt_points})
 
-
 @api_view(['POST'])
 def process_image(request):
     if request.method == 'POST' and request.FILES['image']:
@@ -121,7 +135,7 @@ def process_image(request):
         fs = FileSystemStorage()
         filename = fs.save(image.name, image)
         image_path = fs.path(filename)
-
+        
         img_mat = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)[np.newaxis, ...].astype(np.float32)
         img_mat = img_mat[np.newaxis, ...]
 
@@ -144,8 +158,36 @@ def process_image(request):
         return Response({'mask_url': mask_url})
     return Response({'error': 'No image provided'}, status=400)
 
+@api_view(['POST','GET'])
+def save_image(request):
+    if request.method == "POST":
+        imgDB = imgClass()
+        image = request.FILES['image']
+        imgDB.imgFile = image
+        imgDB.imgName = image.name
+        imgDB.format = image.type
+        imgDB.width = image.width
+        imgDB.height = image.height
+        imgDB.save()
+        # messages.success(request,"image added successfully")
+    return render(request, 'home.html')
 
-
-
+def index(request) -> HttpResponse:
+    if request.method == 'GET':
+        images = imgClass.objects.all().order_by('created_at')
+        return render(
+            request, 'index.html', context={
+                'images': images
+            }
+        )
+    elif request.method == 'POST':
+        body = request.body.decode('utf-8')
+        data = json.loads(body)
+        imgClass.objects.create(
+            key=data['public_id'], url=data['secure_url'],
+            width=data['width'], height=data['height'],
+            format=data['format'], name=data['original_filename'],
+        )
+        return HttpResponse(status=201)
 
 

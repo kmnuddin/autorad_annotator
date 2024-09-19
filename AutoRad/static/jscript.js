@@ -428,52 +428,26 @@ function createOptionsMask() {
 
 function test123() {
     
-    var imgFile = $('#imageUpload')[0].files[0]
-    var newImg = imgClass()
-    newImg.imgName = imgFile.name
-    
-    // var formData = new FormData();
-    // formData.append('image', $('#imageUpload')[0].files[0]);
-    // var csrftoken = getCSRFToken();
-
-    // $.ajax({
-    //     type: 'POST',
-    //     url: '/api/process-image/',
-    //     data: formData,
-    //     processData: false,
-    //     contentType: false,
-    //     beforeSend: function(xhr) {
-    //         if (csrftoken) {
-    //             xhr.setRequestHeader("X-CSRFToken", csrftoken);
-    //         }
-    //     },
-    //     success: function(response) {
-    //         // Extract relevant data from the response
-    //         var maskUrl = response.mask_url;
-
-    //         // Second API call: view_mask
-    //         $.ajax({
-    //             type: 'POST',
-    //             url: '/api/view-mask/',
-    //             data: JSON.stringify({ 'mask_url': maskUrl }),  // Pass relevant data to the second API
-    //             contentType: 'application/json',
-    //             beforeSend: function(xhr) {
-    //                 if (csrftoken) {
-    //                     xhr.setRequestHeader("X-CSRFToken", csrftoken);
-    //                 }
-    //             },
-    //             success: function(viewMaskResponse) {
-    //                 $('#imagePlaceholder2').attr('src', viewMaskResponse.mask_url)
-    //                 globalMaskClassPaths = viewMaskResponse.mask_class_paths;
-    //                 mask_path = viewMaskResponse.mask_url;
-    //             },
-    //             error: function(xhr, status, error) {
-    //                 console.error('Failed to call view_mask:', xhr.responseText, status, error);
-    //             }
-    //         });
-    //     },
-    //     error: function() {
-    //         console.error('Error processing image');
-    //     }
-    // });
+    var formData = new FormData();
+    formData.append('image', $('#imageUpload')[0].files[0]);
+    var csrftoken = getCSRFToken();
+    $.ajax({
+        type: 'POST',
+        url: 'save-image/',
+        data: formData,
+        processData: false,
+        contentType: false,
+        beforeSend: function(xhr) {
+            if (csrftoken) {
+                xhr.setRequestHeader("X-CSRFToken", csrftoken);
+            }
+        },
+        success: function(response) {
+            console.log("image saved successfully")
+            // Second API call: view_mask
+        },
+        error: function() {
+            console.error('Error in image saving');
+        }
+    });
 }
