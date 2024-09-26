@@ -1,0 +1,22 @@
+<section class="section">
+    <div class="container">
+        <div class="row">
+            <div class = "col-md-8">
+                <div class = "card">
+                    <div class = "card-header">
+                        <h2> Upload Image </h2>
+                    </div>
+                    <div class="card-body">
+                        <form id="imageForm" action="" method="POST" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            <input type="file" name="image" accept="image/*" class="form-control">
+                            <button type="submit">Save </button>
+                        </form>
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+        <a type="button" class="btn btn-outline-primary" href={% url "home" %}> back </a>
+    </div>
+</section>

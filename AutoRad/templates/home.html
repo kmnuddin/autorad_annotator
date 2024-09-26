@@ -45,8 +45,53 @@
                 <h4 class="display-12">Anatomical Segmentation</h4>
             </div>
         </div>
-        <hr class="my-2">
 
+        <!-- Image loading and Selection block -->
+        <hr class="my-2">
+            <div class="vertical-center" id = "function_bar">
+                <tr>
+                    <a id="uploadImg2DB" class="btn btn-primary btn-lg" href={% url 'save_image' %}>Upload an Image</a>
+                    <a id="uploadImg2DB" class="btn btn-primary btn-lg" onclick="showImageList()">Show all Images</a>
+                    <a id="uploadImg2DB" class="btn btn-secondary btn-lg" onclick="hideImageList()">Hide all Images</a>
+                </tr>
+            </div>
+        <hr class="my-2">
+        <div class = "card" id="imagesList" hidden=false>
+            <div class = "card-header">
+                <h2> Image Uploaded </h2>
+            </div>
+            <div class="card-body">
+                <table class="table table-bordered table-striped">
+                    <thead>
+                        <tr>
+                            <th>Id</th>
+                            <th>ImageName</th>
+                            <th>Image</th>
+                            <th>modified_time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for img in images %}
+                        <tr>
+                            <td>{{ img.id }}</td>
+                            <td>{{ img.imgName }}</td>
+                            {% if img.imgFile %}
+                                <td>
+                                    <img width="320" height="320" src="{{ img.imgFile.url }}" alt=""> 
+                                </td>
+                            {% else %}
+                                <td> No Image! </td>
+                            {% endif %}
+                            <td>{{ img.modified_at }}</td>
+                            <td> <a class="btn btn-success badge" onclick="loadThisImg('{{img.imgFile.url}}')"> LOAD </a></td>
+                            <td> <a href="{% url 'del_image' %}" class="btn btn-secondary badge"> DELETE </a></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <!-- The end of image loading and Selection block -->
 
         <!-- Row for Image Placeholders and Severity Assessment Dropdowns -->
         <div class="row">
@@ -83,9 +128,10 @@
                                 <button type="button" id="editImage" class="btn btn-secondary" onclick="addBKGtoCanvas()" disabled>2.Process</button>
                                 <button type="button" id="processImage" class="btn btn-secondary" onclick="plotAllMasks()">3.Put Marks</button>
                                 <button type="button" id="addMasks" class="btn btn-secondary" onclick="createOptionsMask()">4.Generated Layers</button>
-                                <button type="button" id="test" class="btn btn-secondary" onclick="test123()">5.testing</button>
+                                
                             </div>
                         </form>
+                        
                     </div>
                 </div>
 

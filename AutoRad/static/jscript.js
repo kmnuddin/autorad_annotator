@@ -426,28 +426,18 @@ function createOptionsMask() {
     })
 }
 
-function test123() {
-    
-    var formData = new FormData();
-    formData.append('image', $('#imageUpload')[0].files[0]);
-    var csrftoken = getCSRFToken();
-    $.ajax({
-        type: 'POST',
-        url: 'save-image/',
-        data: formData,
-        processData: false,
-        contentType: false,
-        beforeSend: function(xhr) {
-            if (csrftoken) {
-                xhr.setRequestHeader("X-CSRFToken", csrftoken);
-            }
-        },
-        success: function(response) {
-            console.log("image saved successfully")
-            // Second API call: view_mask
-        },
-        error: function() {
-            console.error('Error in image saving');
-        }
-    });
+function hideImageList() {
+    var imgList = document.getElementById("imagesList")
+    imgList.hidden = true
+}
+
+function showImageList() {
+    var imgList = document.getElementById("imagesList")
+    imgList.hidden = false
+}
+
+function loadThisImg(imgSrc) {
+    hideImageList()
+    $('#imagePlaceholder1').attr('src',imgSrc)
+    document.getElementById('editImage').disabled = false
 }

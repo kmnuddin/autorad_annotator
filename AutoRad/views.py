@@ -1,5 +1,5 @@
 import numpy as np
-from django.shortcuts import render
+from django.shortcuts import render,redirect
 from django.core.files.storage import FileSystemStorage
 from django.contrib.auth.forms import UserCreationForm
 from django.views.generic.edit import CreateView
@@ -40,28 +40,22 @@ class SignUpView(CreateView):
 
 @login_required
 def home(request):
-    return render(request, 'home.html')
+    images = imgClass.objects.all()
+    context = {'images':images}
+    print(context)
+    return render(request,'home.html',context)
+    # return render(request, 'home.html')
 
-## Looks like this view is not in use....
+## This view is not in use....
 def upload_image(request):
     context = {}
+    print("If you see this message, this function is under using!") ## testing
     if request.method == 'POST' and request.FILES['image']:
         image = request.FILES['image']
         fs = FileSystemStorage()
         filename = fs.save(image.name, image)
         image_url = fs.url(filename)
         context['image_url'] = image_url
-        
-        imgDB = imgClass()
-        image = request.FILES['image']
-        imgDB.imgFile = image
-        imgDB.imgName = image.name
-        imgDB.format = image.type
-        imgDB.width = image.width
-        imgDB.height = image.height
-        imgDB.save()
-        
-        
     return render(request, 'home.html', context)
 
 logger = logging.getLogger(__name__)
@@ -108,6 +102,7 @@ def view_mask(request):
 
 @api_view(['POST'])
 def get_control_points(request):
+    print("test")
     mask_path = request.data.get('mask_url')
     filename = unquote(mask_path).split('/')[-1]
     filename = filename.split('.')[0]
@@ -158,36 +153,26 @@ def process_image(request):
         return Response({'mask_url': mask_url})
     return Response({'error': 'No image provided'}, status=400)
 
-@api_view(['POST','GET'])
 def save_image(request):
-    if request.method == "POST":
-        imgDB = imgClass()
-        image = request.FILES['image']
-        imgDB.imgFile = image
-        imgDB.imgName = image.name
-        imgDB.format = image.type
-        imgDB.width = image.width
-        imgDB.height = image.height
-        imgDB.save()
-        # messages.success(request,"image added successfully")
-    return render(request, 'home.html')
+    # print(request.user)
+    if request.method == 'POST':
+        imageDB = imgClass()
+        if len(request.FILES) !=0:
+            imageDB.imgFile = request.FILES['image']
+        imageDB.imgName = request.FILES['image'].name
+        imageDB.width = request.POST.get('width')
+        imageDB.height = request.POST.get('height')
+        
+        # print(os.path.join('./',request.user.username))
+        
+        imageDB.save()
+        
+        messages.success(request,"image upload successfully!")
+        return redirect('/')
+    return render(request, 'saveImg.html')
 
-def index(request) -> HttpResponse:
-    if request.method == 'GET':
-        images = imgClass.objects.all().order_by('created_at')
-        return render(
-            request, 'index.html', context={
-                'images': images
-            }
-        )
-    elif request.method == 'POST':
-        body = request.body.decode('utf-8')
-        data = json.loads(body)
-        imgClass.objects.create(
-            key=data['public_id'], url=data['secure_url'],
-            width=data['width'], height=data['height'],
-            format=data['format'], name=data['original_filename'],
-        )
-        return HttpResponse(status=201)
-
-
+def del_image(request):
+    if request.method=='POST':
+        
+        return redirect('/')
+    return render(request,"delImg.html")
