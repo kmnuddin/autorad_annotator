@@ -39,6 +39,7 @@ class SignUpView(CreateView):
         return response
 
 @login_required
+### When homepage is loading, it will pull all the image from DB.
 def home(request):
     images = imgClass.objects.all()
     context = {'images':images}
@@ -47,16 +48,16 @@ def home(request):
     # return render(request, 'home.html')
 
 ## This view is not in use....
-def upload_image(request):
-    context = {}
-    print("If you see this message, this function is under using!") ## testing
-    if request.method == 'POST' and request.FILES['image']:
-        image = request.FILES['image']
-        fs = FileSystemStorage()
-        filename = fs.save(image.name, image)
-        image_url = fs.url(filename)
-        context['image_url'] = image_url
-    return render(request, 'home.html', context)
+# def upload_image(request):
+#     context = {}
+#     print("If you see this message, this function is under using!") ## testing
+#     if request.method == 'POST' and request.FILES['image']:
+#         image = request.FILES['image']
+#         fs = FileSystemStorage()
+#         filename = fs.save(image.name, image)
+#         image_url = fs.url(filename)
+#         context['image_url'] = image_url
+#     return render(request, 'home.html', context)
 
 logger = logging.getLogger(__name__)
 
@@ -154,19 +155,16 @@ def process_image(request):
     return Response({'error': 'No image provided'}, status=400)
 
 def save_image(request):
-    # print(request.user)
     if request.method == 'POST':
         imageDB = imgClass()
         if len(request.FILES) !=0:
             imageDB.imgFile = request.FILES['image']
-        imageDB.imgName = request.FILES['image'].name
-        imageDB.width = request.POST.get('width')
-        imageDB.height = request.POST.get('height')
-        
-        # print(os.path.join('./',request.user.username))
-        
+        imageDB.imgName = request.POST.get('imgName')
+        imageDB.type = request.POST.get('imgType')
+        imageDB.width = request.POST.get('imgWidth')
+        imageDB.height = request.POST.get('imgHeight')
         imageDB.save()
-        
+                
         messages.success(request,"image upload successfully!")
         return redirect('/')
     return render(request, 'saveImg.html')
@@ -176,3 +174,34 @@ def del_image(request):
         
         return redirect('/')
     return render(request,"delImg.html")
+
+@api_view(['POST'])
+def new_process_image(request):
+    if request.method == 'POST' and request.FILES['image']:
+        # Save image
+        image = request.FILES['image']
+        fs = FileSystemStorage()
+        filename = fs.save(image.name, image)
+        image_path = fs.path(filename)
+        
+        img_mat = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)[np.newaxis, ...].astype(np.float32)
+        img_mat = img_mat[np.newaxis, ...]
+
+        with torch.no_grad():
+            img_mat = torch.from_numpy(img_mat)
+            img_mat = img_mat.to(device)
+            mask = model(img_mat)
+
+        # mask = torch.squeeze(torch.argmax(mask, dim=1))
+        mask_np = mask.cpu().numpy()  # Convert the tensor to a numpy array
+        # mask_np = mask_np.astype(np.uint8)  # Ensure it's in 'uint8' format for image saving
+        # mask_np = lbl_decoder(mask_np)
+        mask_filename = 'mask_' + filename.split('.')[0] + '.npy'
+        mask_file_path = os.path.join(settings.MEDIA_ROOT, mask_filename)
+        np.save(mask_file_path, mask_np)  # Save as .npy
+
+        # Get the URL for the saved mask
+        mask_url = fs.url(mask_filename)
+
+        return Response({'mask_url': mask_url})
+    return Response({'error': 'No image provided'}, status=400)

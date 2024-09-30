@@ -8,52 +8,6 @@ var mask_list = [];
 // unknow variables, need validatation or removed.
 var structureLayers = [];
 
-/* DB Schema
- * DB Schema for testing phrase. The structure is described below:
-
-    users = {
-        "user_ID1" : {
-            username:
-            pwd:
-            images:{
-                "image_ID1":{
-                    src:""
-                    IVD:[
-                            {
-                                id:"IVD_1"
-                                src:
-                                top:
-                                left:
-                                angle:
-                                scaleX:
-                                scaleY:
-                                points:[]
-                            },
-                            {
-                                id:"IVD_2"
-                                src:
-                                top:
-                                left:
-                                angle:
-                                scaleX:
-                                scaleY:
-                                points:[]
-                            }
-                        ],
-                    PE:[],
-                    TS:[],
-                    AAP:[]                    
-                }
-                "image_ID2":{},
-                "image_ID3":{}
-            }
-        },
-        "user_ID2":{},
-        "user_ID3":{}
-    }
-
-*/
-
 // Test users DB to keep all the records and information
 var usersDB = {}
 
@@ -314,22 +268,18 @@ function handleImageUpload() {
 function displayUploadedImage() {
     var input = document.getElementById('imageUpload');
     var editButton = document.getElementById('editImage');
-    // var overlayBtn = document.getElementById('processIamge')
     if (input.files && input.files[0]) {
         var reader = new FileReader();
 
         reader.onload = function(e) {
             $('#imagePlaceholder1').attr('src', e.target.result);
-            // $('#imageOrigin').attr('src', e.target.result);
         }
 
         reader.readAsDataURL(input.files[0]);
         editButton.disabled = false
-        // overlayBtn.disabled = false;
     }
     else {
         editButton.disabled = true
-        // overlayBtn.disabled = true;
     }
 }
 
@@ -428,11 +378,13 @@ function createOptionsMask() {
 
 function hideImageList() {
     var imgList = document.getElementById("imagesList")
+    document.getElementById('imageManipulationCard').hidden = false
     imgList.hidden = true
 }
 
 function showImageList() {
     var imgList = document.getElementById("imagesList")
+    document.getElementById('imageManipulationCard').hidden = true
     imgList.hidden = false
 }
 
@@ -440,4 +392,131 @@ function loadThisImg(imgSrc) {
     hideImageList()
     $('#imagePlaceholder1').attr('src',imgSrc)
     document.getElementById('editImage').disabled = false
+    
 }
+
+function loadAndProcessThisImg(imgSrc) {
+    hideImageList()
+    $('#imagePlaceholder1').attr('src',imgSrc)
+    document.getElementById('editImage').disabled = false
+    newUploadImage()
+}
+
+function newUploadImage() {
+    var formData = new FormData();
+    formData.append('image', $('#imageUpload')[0].files[0]);
+    var csrftoken = getCSRFToken();
+
+    console.log(formData)
+
+    $.ajax({
+        type: 'POST',
+        url: '/api/process-image/',
+        data: formData,
+        processData: false,
+        contentType: false,
+        beforeSend: function(xhr) {
+            if (csrftoken) {
+                xhr.setRequestHeader("X-CSRFToken", csrftoken);
+            }
+        },
+        success: function(response) {
+            // Extract relevant data from the response
+            var maskUrl = response.mask_url;
+
+            // Second API call: view_mask
+            $.ajax({
+                type: 'POST',
+                url: '/api/view-mask/',
+                data: JSON.stringify({ 'mask_url': maskUrl }),  // Pass relevant data to the second API
+                contentType: 'application/json',
+                beforeSend: function(xhr) {
+                    if (csrftoken) {
+                        xhr.setRequestHeader("X-CSRFToken", csrftoken);
+                    }
+                },
+                success: function(viewMaskResponse) {
+                    $('#imagePlaceholder2').attr('src', viewMaskResponse.mask_url)
+                    globalMaskClassPaths = viewMaskResponse.mask_class_paths;
+                    mask_path = viewMaskResponse.mask_url;
+                },
+                error: function(xhr, status, error) {
+                    console.error('Failed to call view_mask:', xhr.responseText, status, error);
+                }
+            });
+        },
+        error: function() {
+            console.error('Error processing image');
+        }
+    });
+}
+
+function mewHandleImageUpload() {
+    var imageInput = document.getElementById('imageUpload');
+    var submitButton = document.getElementById('submitImage');
+    if (imageInput.files && imageInput.files[0]) {
+        // Enable the submit button
+        submitButton.disabled = false;
+        // Display the uploaded image
+        displayUploadedImage();
+    } else {
+        // Disable the submit button if no image is chosen
+        submitButton.disabled = true;
+    }
+}
+
+function newDisplayUploadedImage() {
+    var input = document.getElementById('imageUpload');
+    var editButton = document.getElementById('editImage');
+    if (input.files && input.files[0]) {
+        var reader = new FileReader();
+
+        reader.onload = function(e) {
+            $('#imagePlaceholder1').attr('src', e.target.result);
+        }
+
+        reader.readAsDataURL(input.files[0]);
+        editButton.disabled = false
+    }
+    else {
+        editButton.disabled = true
+    }
+}
+//$("#imagePlaceholder1")[0].naturalHeight/naturalWidt
+
+
+
+/**
+ * saveImg.html
+ */
+function addNewImage() {
+    var imageInput = document.getElementById('imageUpload')
+    var saveBtn = document.getElementById('saveBtn')
+    if (imageInput.files && imageInput.files[0]) {
+        var reader = new FileReader();
+        reader.readAsDataURL(imageInput.files[0]);
+        reader.onload = (function(e) {
+            var image = new Image();
+            image.src = e.target.result;
+            image.onload = function() {
+                // console.log(this.naturalHeight);
+                // console.log(this.naturalWidth);
+                document.getElementById("imgWidth").value = this.naturalWidth
+                document.getElementById("imgHeight").value = this.naturalHeight
+                $('#imageBox').attr('src', this.src);
+            };
+        })
+        // console.log(imageInput.files[0].name)
+        // console.log(imageInput.files[0].type)
+        document.getElementById("imgName").value = imageInput.files[0].name
+        document.getElementById("imgType").value = imageInput.files[0].type
+
+        saveBtn.disabled = false
+    } else {
+        saveBtn.disabled = true
+    }
+}
+
+/**
+ * delImg.html
+ */

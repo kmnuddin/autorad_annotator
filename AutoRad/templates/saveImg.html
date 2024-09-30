@@ -1,3 +1,6 @@
+<script type="text/javascript" src="../static/jscript.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 <section class="section">
     <div class="container">
         <div class="row">
@@ -9,14 +12,35 @@
                     <div class="card-body">
                         <form id="imageForm" action="" method="POST" enctype="multipart/form-data">
                             {% csrf_token %}
-                            <input type="file" name="image" accept="image/*" class="form-control">
-                            <button type="submit">Save </button>
+                            <input type="file" name="image" accept="image/*" class="form-control" id="imageUpload" onchange="addNewImage()"> 
+                            <div class="mb-3">
+                                <label for="" class="form-label">Name</label>
+                                <input type="text" Required id="imgName" name="imgName" class="form-control">
+                            </div>
+                            <div class="mb-3">
+                                <label for="" class="form-label">type</label>
+                                <input type="text" Required id="imgType" name="imgType" class="form-control">
+                            </div>
+                            <div class="mb-3">
+                                <label for="" class="form-label">Width</label>
+                                <input type="text" Required id="imgWidth" name="imgWidth" class="form-control">
+                            </div>
+                            <div class="mb-3">
+                                <label for="" class="form-label">Height</label>
+                                <input type="text" Required id="imgHeight" name="imgHeight" class="form-control">
+                            </div>
+                            <button type="submit" id="saveBtn" class="btn btn-primary" disabled=true>Save</button>
                         </form>
+                        
+                        <hr class="my-2">
+                        <div class="border rounded d-flex justify-content-center align-items-center">
+                            <img id="imageBox" class="border rounded">
+                        </div>
                     </div>
                 </div>
                 
             </div>
         </div>
-        <a type="button" class="btn btn-outline-primary" href={% url "home" %}> back </a>
+        <a type="button" class="btn btn-outline-primary" href={% url "home" %} disabled> back </a>
     </div>
 </section>

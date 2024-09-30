@@ -30,9 +30,9 @@ class imgClass(models.Model):
     imgName = models.CharField(max_length=100,help_text="The name of the uploaded image.",default="")
     # url = models.CharField(max_length=100,default='./media')
     imgFile = models.ImageField(upload_to='.')
-    # width = models.IntegerField(help_text="Width in px",default=320)
-    # height = models.IntegerField(help_text="height in px",default=320)
-    # format = models.CharField(max_length=10,default="image/png")
+    width = models.IntegerField(help_text="Width in px",default=320)
+    height = models.IntegerField(help_text="height in px",default=320)
+    type = models.CharField(max_length=10,default="image/*")
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     

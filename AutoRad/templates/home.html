@@ -83,18 +83,19 @@
                                 <td> No Image! </td>
                             {% endif %}
                             <td>{{ img.modified_at }}</td>
-                            <td> <a class="btn btn-success badge" onclick="loadThisImg('{{img.imgFile.url}}')"> LOAD </a></td>
+                            <td> <a class="btn btn-success badge" onclick="loadAndProcessThisImg('{{img.imgFile.url}}')"> LOAD </a></td>
                             <td> <a href="{% url 'del_image' %}" class="btn btn-secondary badge"> DELETE </a></td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
+            
         </div>
         <!-- The end of image loading and Selection block -->
-
+        <hr class="my-2">
         <!-- Row for Image Placeholders and Severity Assessment Dropdowns -->
-        <div class="row">
+        <div class="row" id="imageManipulationCard" hidden=true>
             <!-- Column for Image Placeholders -->
             <div class="col-md-12">
                 <div class="row justify-content-center">
@@ -234,11 +235,7 @@
                     </div>
                 </div>
             </div>
-
-
         </div>
-        
-        
     </main>
 </div>
 
