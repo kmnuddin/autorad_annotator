@@ -13,21 +13,21 @@ def userFolder(instance, filename):
     return ""
 
 class patientClass(models.Model):
-    patientID = models.CharField(max_length=100,default="000000000000")
+    patientID = models.CharField(max_length=100,default="1")
     patientName = models.CharField(max_length=100,default="")
     
     # userID = models.ForeignKey(User,on_delete=models.CASCADE,default="000000000000")
     
 class reportClass(models.Model):
     reportName = models.CharField(max_length=200,default="")
-    reprotID = models.CharField(max_length=100,default="000000000000")
+    reprotID = models.CharField(max_length=100,default="1")
     reportContent = models.CharField(max_length=200,default="")
     
     # patientID = models.ForeignKey(patientClass,on_delete=models.CASCADE,default="000000000000")
     
 class imgClass(models.Model):
     # imgKey = models.CharField(max_length=100,help_text="The public ID of the upoloaded file.",default="000000000000")
-    imgName = models.CharField(max_length=100,help_text="The name of the uploaded image.",default="")
+    imgName = models.CharField(max_length=100,help_text="The name of the uploaded image.",default="example_image.png")
     # url = models.CharField(max_length=100,default='./media')
     imgFile = models.ImageField(upload_to='.')
     width = models.IntegerField(help_text="Width in px",default=320)
@@ -36,25 +36,28 @@ class imgClass(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     
-    # userAcc = models.ForeignKey(User, on_delete=models.CASCADE,default="000000000000")
+    userAcc = models.ForeignKey(User, on_delete=models.PROTECT,default="1")
     
-    # reportID = models.ForeignKey(reportClass,on_delete=models.CASCADE,default="000000000000")
+    # reportID = models.ForeignKey(reportClass,on_delete=models.CASCADE,default="1")
     
 class maskClass(models.Model):
-    maskKey = models.CharField(max_length=100,help_text="The internal ID of the mask.",default="000000000000")
-    maskName = models.CharField(max_length=200,help_text="The name of the mask",default="")
-    maskType = models.CharField(max_length=200,help_text="The type of the mask, ",default="")
-    maskFile = models.CharField(max_length=200,default="")
+    maskName = models.CharField(max_length=200,help_text="The name of the mask",default="example_mask.png")
+    maskType = models.CharField(max_length=200,help_text="The type of the mask, ",default="Type1")
+    maskFile = models.ImageField(upload_to='.')
     maskPts = models.CharField(max_length=1000,default="[]")
     maskTop = models.IntegerField(default=0)
     maskLeft = models.IntegerField(default=0)
-    maskAngle = models.IntegerField(default=0)
+    maskAngle = models.FloatField(default=0.0)
     maskScale = models.FloatField(default=1.0)
     maskOpacity = models.FloatField(default=1.0)
     maskCornerColor = models.CharField(max_length = 7, help_text = "The color code for corner",default="#0000ff")
     maskStrokeColor = models.CharField(max_length = 7, help_text = "The color code for line",default="#ff0000")
     
-    imgID = models.ForeignKey(imgClass,on_delete=models.CASCADE,default="000000000000")
+    imgID = models.ForeignKey(imgClass,on_delete=models.CASCADE,default="1")
     
-
+class testClass(models.Model):
+    fn = models.CharField(max_length=10,default="John")
+    ln = models.CharField(max_length=10,default="Doe")
+    
+    userID = models.ForeignKey(User,on_delete=models.CASCADE,default="1")
     

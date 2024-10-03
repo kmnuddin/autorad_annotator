@@ -103,7 +103,6 @@ def view_mask(request):
 
 @api_view(['POST'])
 def get_control_points(request):
-    print("test")
     mask_path = request.data.get('mask_url')
     filename = unquote(mask_path).split('/')[-1]
     filename = filename.split('.')[0]
@@ -154,6 +153,7 @@ def process_image(request):
         return Response({'mask_url': mask_url})
     return Response({'error': 'No image provided'}, status=400)
 
+@api_view(['POST','GET'])
 def save_image(request):
     if request.method == 'POST':
         imageDB = imgClass()
@@ -164,7 +164,68 @@ def save_image(request):
         imageDB.width = request.POST.get('imgWidth')
         imageDB.height = request.POST.get('imgHeight')
         imageDB.save()
+        
+        print("Image saves successfully!")
+        try:
+            print("Current user: ", request.user)
+            fs = FileSystemStorage()
+            image_path = r'.' + imageDB.imgFile.url
+            filename = imageDB.imgFile.name
+            img_mat = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)[np.newaxis, ...].astype(np.float32)
+            img_mat = img_mat[np.newaxis, ...]
+            
+            with torch.no_grad():
+                img_mat = torch.from_numpy(img_mat)
+                img_mat = img_mat.to(device)
+                mask = model(img_mat)
                 
+            mask_np = mask.cpu().numpy()
+
+            structure_cnt_points = {}
+            classes = ["IVD", "PE", "TS", "AAP"]
+            for i in range(1, mask_np.shape[1]):
+                cls=classes[i-1]
+                class_fname = filename.split('.')[0]+ '_' + cls + '.png'
+                class_save_path = os.path.join(settings.MEDIA_ROOT, class_fname)
+                plt.imsave(class_save_path, np.squeeze(mask)[i], cmap='gray')
+                # mask_class_url = fs.url(class_fname)
+                # mask_class_paths.append(mask_class_url)
+                
+                tempMask = maskClass()
+                tempMask.maskName = class_fname
+                tempMask.maskType = cls
+                
+                tempMask.save()
+                
+                print(class_fname," mask is saved")
+                
+                mask_cls_path = r'.' + fs.url(class_fname)
+                
+                print("URL is: ", mask_cls_path)
+                
+                mask = cv2.imread(mask_cls_path, cv2.IMREAD_GRAYSCALE)
+                
+                print("Image is loaded")
+                
+                mask = cv2.resize(mask, (500, 500))
+                
+                print("Image is resized")
+                
+                cnts, hier = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+                
+                print("Points are found!")
+                
+                cnts = sorted(cnts, key=cv2.contourArea)
+                
+                print("Points are sorted!")
+                print("Nbr of layer: ", len(cnts))
+                for cnt in cnts:
+                    print("Nbr of pts: ", len(cnt))
+                    print(cnt.tolist())                
+            
+        except Exception as e:
+            print("Error! ",e)
+        
         messages.success(request,"image upload successfully!")
         return redirect('/')
     return render(request, 'saveImg.html')
@@ -174,34 +235,3 @@ def del_image(request):
         
         return redirect('/')
     return render(request,"delImg.html")
-
-@api_view(['POST'])
-def new_process_image(request):
-    if request.method == 'POST' and request.FILES['image']:
-        # Save image
-        image = request.FILES['image']
-        fs = FileSystemStorage()
-        filename = fs.save(image.name, image)
-        image_path = fs.path(filename)
-        
-        img_mat = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)[np.newaxis, ...].astype(np.float32)
-        img_mat = img_mat[np.newaxis, ...]
-
-        with torch.no_grad():
-            img_mat = torch.from_numpy(img_mat)
-            img_mat = img_mat.to(device)
-            mask = model(img_mat)
-
-        # mask = torch.squeeze(torch.argmax(mask, dim=1))
-        mask_np = mask.cpu().numpy()  # Convert the tensor to a numpy array
-        # mask_np = mask_np.astype(np.uint8)  # Ensure it's in 'uint8' format for image saving
-        # mask_np = lbl_decoder(mask_np)
-        mask_filename = 'mask_' + filename.split('.')[0] + '.npy'
-        mask_file_path = os.path.join(settings.MEDIA_ROOT, mask_filename)
-        np.save(mask_file_path, mask_np)  # Save as .npy
-
-        # Get the URL for the saved mask
-        mask_url = fs.url(mask_filename)
-
-        return Response({'mask_url': mask_url})
-    return Response({'error': 'No image provided'}, status=400)
