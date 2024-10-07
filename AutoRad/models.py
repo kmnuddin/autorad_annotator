@@ -36,7 +36,7 @@ class imgClass(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     
-    userAcc = models.ForeignKey(User, on_delete=models.PROTECT,default="1")
+    userAcc = models.ForeignKey(User, on_delete=models.SET_DEFAULT,default="1")
     
     # reportID = models.ForeignKey(reportClass,on_delete=models.CASCADE,default="1")
     
@@ -53,11 +53,11 @@ class maskClass(models.Model):
     maskCornerColor = models.CharField(max_length = 7, help_text = "The color code for corner",default="#0000ff")
     maskStrokeColor = models.CharField(max_length = 7, help_text = "The color code for line",default="#ff0000")
     
-    imgID = models.ForeignKey(imgClass,on_delete=models.CASCADE,default="1")
+    imgID = models.ForeignKey(imgClass,on_delete=models.SET_DEFAULT,default="1")
     
 class testClass(models.Model):
     fn = models.CharField(max_length=10,default="John")
     ln = models.CharField(max_length=10,default="Doe")
     
-    userID = models.ForeignKey(User,on_delete=models.CASCADE,default="1")
+    userID = models.ForeignKey(User,on_delete=models.SET_DEFAULT,default="1")
     
