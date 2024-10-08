@@ -304,7 +304,7 @@ function uploadImage() {
     var formData = new FormData();
     formData.append('image', $('#imageUpload')[0].files[0]);
     var csrftoken = getCSRFToken();
-
+    console.log(formData);
     $.ajax({
         type: 'POST',
         url: '/api/process-image/',
@@ -396,25 +396,23 @@ function loadThisImg(imgSrc) {
 }
 
 function loadAndProcessThisImg(imgSrc) {
-    hideImageList()
-    $('#imagePlaceholder1').attr('src',imgSrc)
-    document.getElementById('editImage').disabled = false
-    newUploadImage()
+    hideImageList();
+    $('#imagePlaceholder1').attr('src', imgSrc);
+    document.getElementById('editImage').disabled = false;
+
+    newUploadImage(imgSrc);
 }
 
-function newUploadImage() {
-    var formData = new FormData();
-    formData.append('image', $('#imageUpload')[0].files[0]);
+function newUploadImage(imgPath) {
+    var data = JSON.stringify({ 'img_path': imgPath });
     var csrftoken = getCSRFToken();
-
-    console.log(formData)
 
     $.ajax({
         type: 'POST',
         url: '/api/process-image/',
-        data: formData,
+        data: data,
         processData: false,
-        contentType: false,
+        contentType: 'application/json',
         beforeSend: function(xhr) {
             if (csrftoken) {
                 xhr.setRequestHeader("X-CSRFToken", csrftoken);
@@ -436,7 +434,7 @@ function newUploadImage() {
                     }
                 },
                 success: function(viewMaskResponse) {
-                    $('#imagePlaceholder2').attr('src', viewMaskResponse.mask_url)
+                    $('#imagePlaceholder2').attr('src', viewMaskResponse.mask_url);
                     globalMaskClassPaths = viewMaskResponse.mask_class_paths;
                     mask_path = viewMaskResponse.mask_url;
                 },
@@ -450,6 +448,7 @@ function newUploadImage() {
         }
     });
 }
+
 
 function mewHandleImageUpload() {
     var imageInput = document.getElementById('imageUpload');

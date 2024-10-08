@@ -43,7 +43,6 @@ class SignUpView(CreateView):
 def home(request):
     images = imgClass.objects.all()
     context = {'images':images}
-    print(context)
     return render(request,'home.html',context)
     # return render(request, 'home.html')
 
@@ -122,36 +121,43 @@ def get_control_points(request):
 
     return JsonResponse({'cls_cnt': structure_cnt_points})
 
+
 @api_view(['POST'])
 def process_image(request):
-    if request.method == 'POST' and request.FILES['image']:
-        # Save image
-        image = request.FILES['image']
-        fs = FileSystemStorage()
-        filename = fs.save(image.name, image)
-        image_path = fs.path(filename)
-        
-        img_mat = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)[np.newaxis, ...].astype(np.float32)
-        img_mat = img_mat[np.newaxis, ...]
 
-        with torch.no_grad():
-            img_mat = torch.from_numpy(img_mat)
-            img_mat = img_mat.to(device)
-            mask = model(img_mat)
+    if request.method == 'POST':
 
-        # mask = torch.squeeze(torch.argmax(mask, dim=1))
-        mask_np = mask.cpu().numpy()  # Convert the tensor to a numpy array
-        # mask_np = mask_np.astype(np.uint8)  # Ensure it's in 'uint8' format for image saving
-        # mask_np = lbl_decoder(mask_np)
-        mask_filename = 'mask_' + filename.split('.')[0] + '.npy'
-        mask_file_path = os.path.join(settings.MEDIA_ROOT, mask_filename)
-        np.save(mask_file_path, mask_np)  # Save as .npy
+        img_path = request.data.get('img_path', None)
+        if img_path:
+            # Construct the full path for the image
+            img_filename = img_path.split('/')[-1]
+            image_path = os.path.join(settings.MEDIA_ROOT, img_filename)
 
-        # Get the URL for the saved mask
-        mask_url = fs.url(mask_filename)
+            if os.path.exists(image_path):
+                # Load image as grayscale
+                img_mat = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)[np.newaxis, ...].astype(np.float32)
+                img_mat = img_mat[np.newaxis, ...]
 
-        return Response({'mask_url': mask_url})
-    return Response({'error': 'No image provided'}, status=400)
+                # Process the image with the model
+                with torch.no_grad():
+                    img_mat = torch.from_numpy(img_mat)
+                    img_mat = img_mat.to(device)
+                    mask = model(img_mat)
+
+                # Convert the tensor to a numpy array and save it
+                mask_np = mask.cpu().numpy()
+                mask_filename = 'mask_' + os.path.basename(img_path).split('.')[0] + '.npy'
+                mask_file_path = os.path.join(settings.MEDIA_ROOT, mask_filename)
+                np.save(mask_file_path, mask_np)
+
+                # Get the URL for the saved mask
+                mask_url = os.path.join(settings.MEDIA_URL, mask_filename)
+
+                return Response({'mask_url': mask_url})
+            else:
+                return Response({'error': 'Image path does not exist'}, status=404)
+
+    return Response({'error': 'Invalid request'}, status=400)
 
 @api_view(['POST','GET'])
 def save_image(request):

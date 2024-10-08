@@ -120,13 +120,13 @@
                     <div class="col-md-12">
                         <form id="imageForm" action="/upload-path/" method="post" enctype="multipart/form-data">
                             {% csrf_token %}
-                            <div class="mb-2">
-                                <!-- Image upload button -->
-                                <input type="file" name="image" accept="image/*" class="form-control" id="imageUpload" onchange="handleImageUpload()">
-                            </div>
+{#                            <div class="mb-2">#}
+{#                                <!-- Image upload button -->#}
+{#                                <input type="file" name="image" accept="image/*" class="form-control" id="imageUpload" onchange="handleImageUpload()">#}
+{#                            </div>#}
                             <div>
-                                <button type="button" id="submitImage" class="btn btn-primary" onclick="uploadImage()" disabled>1.Submit</button>
-                                <button type="button" id="editImage" class="btn btn-secondary" onclick="addBKGtoCanvas()" disabled>2.Process</button>
+                                <button type="button" id="submitImage" class="btn btn-primary" onclick="uploadImage()">1.Submit</button>
+                                <button type="button" id="editImage" class="btn btn-secondary" onclick="addBKGtoCanvas()">2.Process</button>
                                 <button type="button" id="processImage" class="btn btn-secondary" onclick="plotAllMasks()">3.Put Marks</button>
                                 <button type="button" id="addMasks" class="btn btn-secondary" onclick="createOptionsMask()">4.Generated Layers</button>
                                 
@@ -242,9 +242,9 @@
 <script>
     
  // Initially disable submit button
-    document.getElementById('submitImage').disabled = true;
-    // Initially disable edit button
-    document.getElementById('editImage').disabled = true;
+    {#document.getElementById('submitImage').disabled = true;#}
+    {#// Initially disable edit button#}
+    {#document.getElementById('editImage').disabled = true;#}
 
 
     // initialization
