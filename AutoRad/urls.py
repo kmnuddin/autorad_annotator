@@ -41,7 +41,7 @@ urlpatterns = [
     path('api/view-mask/', view_mask, name='view_mask'),
     path('api/get-control-points/', get_control_points, name='get_control_points'),
     path('saveImg/',save_image,name='save_image'),
-    path('delImg/',del_image,name='del_image')     
+    path('delImg/<str:imgId>',del_image,name='del_image')     
 ]
 
 if settings.DEBUG:

@@ -4,6 +4,7 @@
 {% block content %}
 {% comment %} <script type="text/javascript" src="./static/require.js"></script> {% endcomment %}
 <script type="text/javascript" src="./static/jscript.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/4.3.1/fabric.min.js"></script>
 <div class="container-fluid">
     <nav class="navbar navbar-expand-lg navbar-light bg-body-tertiary">
@@ -83,8 +84,9 @@
                                 <td> No Image! </td>
                             {% endif %}
                             <td>{{ img.modified_at }}</td>
-                            <td> <a class="btn btn-success badge" onclick="loadAndProcessThisImg('{{img.imgFile.url}}')"> LOAD </a></td>
-                            <td> <a href="{% url 'del_image' %}" class="btn btn-secondary badge"> DELETE </a></td>
+                            <td> <a class="btn btn-success badge" onclick="loadThisImg('{{img.imgFile.url}}')"> LOAD </a></td>
+                            <td> <a class="btn btn-secondary badge" href="{% url 'del_image' img.id %}"> DELETE </a></td>
+                            {% comment %} <td> <a class="btn btn-secondary badge" onclick="delThisImg('{{img.imgFile.url}}')"> DELETE </a></td> {% endcomment %}
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -120,12 +122,12 @@
                     <div class="col-md-12">
                         <form id="imageForm" action="/upload-path/" method="post" enctype="multipart/form-data">
                             {% csrf_token %}
-{#                            <div class="mb-2">#}
-{#                                <!-- Image upload button -->#}
-{#                                <input type="file" name="image" accept="image/*" class="form-control" id="imageUpload" onchange="handleImageUpload()">#}
-{#                            </div>#}
+                            {% comment %} <div class="mb-2">
+                                <!-- Image upload button -->
+                                <input type="file" name="image" accept="image/*" class="form-control" id="imageUpload" onchange="handleImageUpload()">
+                            </div> {% endcomment %}
                             <div>
-                                <button type="button" id="submitImage" class="btn btn-primary" onclick="uploadImage()">1.Submit</button>
+                                {% comment %} <button type="button" id="submitImage" class="btn btn-primary" onclick="uploadImage()" disabled>1.Submit</button> {% endcomment %}
                                 <button type="button" id="editImage" class="btn btn-secondary" onclick="addBKGtoCanvas()">2.Process</button>
                                 <button type="button" id="processImage" class="btn btn-secondary" onclick="plotAllMasks()">3.Put Marks</button>
                                 <button type="button" id="addMasks" class="btn btn-secondary" onclick="createOptionsMask()">4.Generated Layers</button>
@@ -241,15 +243,6 @@
 
 <script>
     
- // Initially disable submit button
-    {#document.getElementById('submitImage').disabled = true;#}
-    {#// Initially disable edit button#}
-    {#document.getElementById('editImage').disabled = true;#}
-
-
-    // initialization
-    testingCaseIni() // added
-
     // Canvas Global Settings
     var canvas1 = this.__canvas = new fabric.Canvas('c1');
     var canvas2 = new fabric.Canvas('c2');
@@ -332,8 +325,6 @@
     // Resize the canvas1 when the document is loaded and when the window is resized.
     function resizeCanvas() {
         const container = document.getElementById('canvasContainer1');
-
-
         var newWidth = container.clientWidth;
 
         canvas1.setWidth(newWidth);
@@ -361,9 +352,15 @@
     });
 
     function addBKGtoCanvas() {
+        
+        console.log("Function started")
+
         // Set the MRI image as the background of the canvas1
         var mri_path = document.getElementById('imagePlaceholder1').src;
+        
         fabric.Image.fromURL(mri_path, function(img) {
+
+            console.log(img)
             // Set the image as the background
             canvas1.setBackgroundImage(img, canvas1.renderAll.bind(canvas1), {
                 scaleX: canvas1.width / img.width,
@@ -371,7 +368,19 @@
             });
         });
         canvas1.renderAll();
+        console.log('Image Render!')
         extractMasks();
+    }
+
+    $("#imagePlaceholder1")[0].onload = function () {
+        console.log("Function started v2")
+        // Set the MRI image as the background of the canvas1
+        var newImg = new fabric.Image(this)
+        console.log(newImg)
+        canvas1.add(newImg)
+        canvas1.renderAll();
+        console.log('Image Render! v2')
+        {% comment %} extractMasks(); {% endcomment %}
     }
 
     // Mask information
