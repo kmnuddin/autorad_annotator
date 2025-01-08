@@ -4,6 +4,7 @@ var curImageID;
 var globalMaskClassPaths = [];  // This variable is used in other places to record the image path, think about pypass this function to DB
 var mask_path;
 var mask_list = [];
+// var query_result={}
 
 // unknow variables, need validatation or removed.
 var structureLayers = [];
@@ -12,12 +13,45 @@ var structureLayers = [];
 var usersDB = {}
 
 /**
+ * Query the SQLite3 created by django
+ * @param {string} objType 
+ * @param {int} objID 
+ */
+function queryDBInfo(objType,objID) {
+
+    var data = JSON.stringify({'objType':objType,'objID':objID});
+    var csrftoken = getCSRFToken();
+    var query_result = {}
+    $.ajax({
+        type: 'POST',
+        url: '/api/query-info/',
+        data: data,
+        contentType: 'application/json',
+        beforeSend: function (xhr) {
+            if (csrftoken) {
+                xhr.setRequestHeader("X-CSRFToken", csrftoken);
+            }
+        },
+        success: function (response) {
+            
+            query_result = response
+            console.log("Query DB Successfully!")
+            console.log("==================================")
+            console.log(query_result)
+            console.log("==================================")
+            return response
+        }
+    })
+}
+
+/**
  * function based on old EditMask function, the API call to obtain the masks information 
  */
 function extractMasks() {
 
     var mri_path = document.getElementById('imagePlaceholder1').src;
-    var data = JSON.stringify({'mask_url': mri_path});
+    var imgID = document.getElementById('imagePlaceholder1').getAttribute('value');
+    var data = JSON.stringify({'mask_url': mri_path,'imgID':imgID});
     var csrftoken = getCSRFToken();
 
     $.ajax({
@@ -30,17 +64,22 @@ function extractMasks() {
                 xhr.setRequestHeader("X-CSRFToken", csrftoken);
             }
         },
-        success: function (response) {        
-            var contours = response.cls_cnt;
-            Object.keys(contours).forEach(function (cls){
-                contours[cls].forEach(function (contour){
-                    var points = contour.map(function (pointWrapper){
-                        var point = pointWrapper[0];
-                        return {x: point[0], y: point[1]};
-                    });
-                    // console.log(cls,": ",points)
-                });
-            });
+        success: function (response) {
+            if (response.cls_cnt != "") {
+                console.log("pnts calculated successfully!")
+            } else {
+                console.log("pnts calculated error!")
+            }
+            // var contours = response.cls_cnt;
+            // Object.keys(contours).forEach(function (cls){
+            //     contours[cls].forEach(function (contour){
+            //         var points = contour.map(function (pointWrapper){
+            //             var point = pointWrapper[0];
+            //             return {x: point[0], y: point[1]};
+            //         });
+            //         console.log(cls,": ",points)
+            //     });
+            // });
         }
     });
 }    
@@ -103,9 +142,12 @@ function showImageList() {
 }
 
 // Function triggered when select an image under the currect user 
-function loadThisImg(imgSrc) {
+function loadThisImg(obj) {
     hideImageList()
+    imgSrc = obj.getAttribute('src')
+    imgID = obj.getAttribute('value')
     $('#imagePlaceholder1').attr('src',imgSrc)
+    $('#imagePlaceholder1').attr('value',imgID)
     document.getElementById('editImage').disabled = false
     var maskSrc = imgSrc.split('.')[0] + '.jpg'
     $('#imagePlaceholder2').attr('src',maskSrc)
@@ -152,9 +194,9 @@ function addNewImage() {
 // Unused Function below
 //===============================
 
-/**
- * user class for DB 
- */
+// /**
+//  * user class for DB 
+//  */
 // class user {
 
 //     constructor(username,userpwd) {
@@ -177,9 +219,9 @@ function addNewImage() {
 //     }
 // }
 
-/**
- * class of image for autoRad. Need modify the file name in future
- */
+// /**
+//  * class of image for autoRad. Need modify the file name in future
+//  */
 // class autoRadImage {
 
 //     constructor(srcString,imgName) {
@@ -204,9 +246,9 @@ function addNewImage() {
 //     }
 // }
 
-/**
- * Image mask class. Need some work on initial position.
- */
+// /**
+//  * Image mask class. Need some work on initial position.
+//  */
 // class imgMask {
 
 //     constructor(typeStr,idNum,ptArr) {
@@ -246,18 +288,18 @@ function addNewImage() {
 //     }
 // }
 
-/**
- * function to generate unique ID with prefix, ID is based on prefx_date_random string
- */
+// /**
+//  * function to generate unique ID with prefix, ID is based on prefx_date_random string
+//  */
 // function generateUUID(prefixString) {
 //     var timeStamp = Date.now().toString(36);
 //     var randomValue = Math.random().toString(36).substring(2, 15);
 //     return(`${prefixString}-${timeStamp}-${randomValue}`)
 // }
 
-/**
- * function to initial testing userDB with testing user (one)
- */
+// /**
+//  * function to initial testing userDB with testing user (one)
+//  */
 // function testingCaseIni() {
 //     var testUser = new user("Lijia","12345678")
 //     testUser.addToUsers()
@@ -265,9 +307,9 @@ function addNewImage() {
 //     curUserID=testUser.userID
 // }
 
-/**
- * [Old]function to initial images with the select image.
- */
+// /**
+//  * [Old]function to initial images with the select image.
+//  */
 // function testingImgIni() {
 //     var img = new autoRadImage(document.getElementById("imagePlaceholder1").src)
 //     img.addToUser(curUserID)
@@ -275,9 +317,9 @@ function addNewImage() {
 //     curImageID = img.imageID
 // }
 
-/**
- * function to add masks to the image selected under logged user
- */
+// /**
+//  * function to add masks to the image selected under logged user
+//  */
 // function masksToImgDB(userID, imgID, typeString, ptsArr) {
 
 //     var imgs = usersDB[userID].images[imgID][typeString]
@@ -286,12 +328,12 @@ function addNewImage() {
 //     maskTemp.addToImage(userID,imgID,typeString)
 // }
 
-/**
- * [Not used]function to check whether the image exists under the curUser using src.
- * @param {*} userID 
- * @param {*} src 
- * @returns 
- */
+// /**
+//  * [Not used]function to check whether the image exists under the curUser using src.
+//  * @param {*} userID 
+//  * @param {*} src 
+//  * @returns 
+//  */
 // function isImgExist(userID, src) {
 //     var imgs = usersDB[userID].images
 //     if (Object.keys(imgs).length != 0) {
@@ -304,10 +346,10 @@ function addNewImage() {
 //     return false
 // }
 
-/**
- * function to locate or create the image based on src under current logged user 
- * return the imageID
- */
+// /**
+//  * function to locate or create the image based on src under current logged user 
+//  * return the imageID
+//  */
 // function getImgID(userID, src) {
 
 //     var imgs = usersDB[userID].images
@@ -328,9 +370,9 @@ function addNewImage() {
 //     return [false, tempImg.imageID]
 // }
 
-/**
- * Image upload image function
- */
+// /**
+//  * Image upload image function
+//  */
 // function handleImageUpload() {
 //     var imageInput = document.getElementById('imageUpload');
 //     var submitButton = document.getElementById('submitImage');
@@ -345,9 +387,9 @@ function addNewImage() {
 //     }
 // }
 
-/**
- * Display upload image function in image place holder 1. Meanwhile, some button enable/disable.
- */
+// /**
+//  * Display upload image function in image place holder 1. Meanwhile, some button enable/disable.
+//  */
 // function displayUploadedImage() {
 //     var input = document.getElementById('imageUpload');
 //     var editButton = document.getElementById('editImage');
@@ -366,9 +408,9 @@ function addNewImage() {
 //     }
 // }
 
-/**
- * This function will upload the image to the model and generate the components output png files in media folder 
- */
+// /**
+//  * This function will upload the image to the model and generate the components output png files in media folder 
+//  */
 // function uploadImage() {
 //     var formData = new FormData();
 //     formData.append('image', $('#imageUpload')[0].files[0]);

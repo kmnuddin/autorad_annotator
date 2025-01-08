@@ -6,6 +6,7 @@
 <script type="text/javascript" src="./static/jscript.js"></script>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/4.3.1/fabric.min.js"></script>
+{% comment %} <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/index.min.js"></script> {% endcomment %}
 <div class="container-fluid">
     <nav class="navbar navbar-expand-lg navbar-light bg-body-tertiary">
   <div class="container-fluid">
@@ -84,7 +85,7 @@
                                 <td> No Image! </td>
                             {% endif %}
                             <td>{{ img.modified_at }}</td>
-                            <td> <a class="btn btn-success badge" onclick="loadThisImg('{{img.imgFile.url}}')"> LOAD </a></td>
+                            <td> <a class="btn btn-success badge" onclick="loadThisImg(this)" value="{{ img.id }}" src="{{img.imgFile.url}}"> LOAD </a></td>
                             <td> <a class="btn btn-secondary badge" href="{% url 'del_image' img.id %}"> DELETE </a></td>
                             {% comment %} <td> <a class="btn btn-secondary badge" onclick="delThisImg('{{img.imgFile.url}}')"> DELETE </a></td> {% endcomment %}
                         </tr>
@@ -128,9 +129,11 @@
                             </div> {% endcomment %}
                             <div>
                                 {% comment %} <button type="button" id="submitImage" class="btn btn-primary" onclick="uploadImage()" disabled>1.Submit</button> {% endcomment %}
-                                <button type="button" id="editImage" class="btn btn-secondary" onclick="addBKGtoCanvas()">2.Process</button>
-                                <button type="button" id="processImage" class="btn btn-secondary" onclick="plotAllMasks()">3.Put Marks</button>
-                                <button type="button" id="addMasks" class="btn btn-secondary" onclick="createOptionsMask()">4.Generated Layers</button>
+                                <button type="button" id="editImage" class="btn btn-secondary" onclick="addBKGtoCanvas()">1.Add to BKG</button>
+                                <button type="button" id="processImage" class="btn btn-secondary" onclick="extractMasks()">2.Mask Calculation</button>
+                                {% comment %} <button type="button" id="processImage" class="btn btn-secondary" onclick="testFunction()">3.Put Marks</button> {% endcomment %}
+                                <button type="button" id="addMasks" class="btn btn-secondary" onclick="plotAllMasks()">3.Add Masks</button>
+                                <button type="button" id="addMasks" class="btn btn-secondary" onclick="createOptionsMask()">4.Create List</button>
                                 
                             </div>
                         </form>
@@ -242,7 +245,7 @@
 </div>
 
 <script>
-    
+    //================================================================================================================================
     // Canvas Global Settings
     var canvas1 = this.__canvas = new fabric.Canvas('c1');
     var canvas2 = new fabric.Canvas('c2');
@@ -250,9 +253,7 @@
     canvas2.interactive = false;
     canvas2.selection = false;
 
-    //window.addEventListener('load', resizeCanvas);
-    //window.addEventListener('resize', resizeCanvas);
-
+    //canvas1.renderOnAddRemove = false
     canvas1.backgroundColor = 'grey';
     canvas2.backgroundColor = 'grey';
     fabric.Object.prototype.transparentCorners = false;
@@ -261,6 +262,8 @@
     canvas1.preserveObjectStacking = true;
     canvas2.preserveObjectStacking = true;
 
+    //================================================================================================================================
+    // Sync the changes of the selected polygon on panel
     canvas1.on({
         'object:moving': updateControls,
         'object:scaling': updateControls,
@@ -269,6 +272,7 @@
     })
 
     // window event listener
+    // Sync the changes of the panel to selected polygon
     window.addEventListener('load', resizeCanvas);
     window.addEventListener('resize', resizeCanvas);
     document.getElementById("top-control").oninput = function() {
@@ -320,8 +324,35 @@
             canvas1.requestRenderAll()
         }
     }
+    
+    // use to load the parameters when the mask is first created
+    function loadControls(mask) {
+        document.getElementById("top-control").value = mask.maskTop;
+        document.getElementById("left-control").value = mask.maskLeft;
+        document.getElementById("opacity-control").value = mask.maskOpacity;
+        document.getElementById("angle-control").value = mask.maskAngle;
+        document.getElementById("scale-control").value = mask.maskScale;
+        document.getElementById("cornerColor").value = mask.maskCornerColor;
+        document.getElementById("strokecolor").value = mask.maskStrokeColor;
+        //document.getElementById("scaleY-control").value = mask.ScaleY;
+    }
 
+    // function to dynamic track the object manipulation
+    function updateControls() {
+        var canvas1Obj = canvas1.getActiveObject()
+        if (canvas1Obj) {
+            document.getElementById("top-control").value = canvas1Obj.top;
+            document.getElementById("left-control").value = canvas1Obj.left;
+            document.getElementById("opacity-control").value = canvas1Obj.opacity;
+            document.getElementById("angle-control").value = canvas1Obj.angle;
+            document.getElementById("scale-control").value = canvas1Obj.scaleX;
+            //document.getElementById("scaleY-control").value = mask.ScaleY;
+            document.getElementById("cornerColor").value = canvas1Obj.cornerColor;
+            document.getElementById("strokecolor").value = canvas1Obj.stroke;
+        }
+    }
 
+    //================================================================================================================================
     // Resize the canvas1 when the document is loaded and when the window is resized.
     function resizeCanvas() {
         const container = document.getElementById('canvasContainer1');
@@ -336,8 +367,9 @@
         canvas2.renderAll();
     }
 
-    canvas1.renderAll();
+    canvas1.renderAll()
 
+    //================================================================================================================================
     // Zoom in/out function
     canvas1.on('mouse:wheel', function(opt) {
         var delta = opt.e.deltaY;
@@ -351,39 +383,28 @@
         opt.e.stopPropagation();
     });
 
+    //================================================================================================================================
     function addBKGtoCanvas() {
         
-        console.log("Function started")
+        console.log("addBKGtoCanvas Function started")
 
         // Set the MRI image as the background of the canvas1
         var mri_path = document.getElementById('imagePlaceholder1').src;
-        
         fabric.Image.fromURL(mri_path, function(img) {
 
             console.log(img)
-            // Set the image as the background
-            canvas1.setBackgroundImage(img, canvas1.renderAll.bind(canvas1), {
+                //Set the image as the background
+                canvas1.setBackgroundImage(img, canvas1.renderAll.bind(canvas1), {
                 scaleX: canvas1.width / img.width,
                 scaleY: canvas1.height / img.height
             });
         });
         canvas1.renderAll();
         console.log('Image Render!')
-        extractMasks();
+        //extractMasks();
     }
 
-    $("#imagePlaceholder1")[0].onload = function () {
-        console.log("Function started v2")
-        // Set the MRI image as the background of the canvas1
-        var newImg = new fabric.Image(this)
-        console.log(newImg)
-        canvas1.add(newImg)
-        canvas1.renderAll();
-        console.log('Image Render! v2')
-        {% comment %} extractMasks(); {% endcomment %}
-    }
-
-    // Mask information
+    // Mask information， define the filling color of the structure
     var structureColors = {
         IVD: 'rgba(64, 64, 64, 0.5)', // Note: Alpha is out of 255 here
         PE: 'rgba(128, 128, 128, 0.5)',
@@ -396,84 +417,132 @@
         var maskSelection = document.getElementById('maskSelection');
 
         maskSelection.addEventListener('change', function() {
-            var maskID = this.value;
-
-            if (maskID != "") {
+            var mask_label = this.value;
+            var imgID = document.getElementById('imagePlaceholder1').getAttribute('value')
+            if (mask_label != "") {
                 removeAllMask();      // This will not remove background image
             }
-            var type = maskID.slice(0,-1)
+
+            var maskType = mask_label.slice(0,-2)
+            //console.log(maskType)
+            var index = parseInt(mask_label.charAt(mask_label.length - 1))
+            var csrftoken = getCSRFToken();
+            console.log("Current mask type is: ", maskType, ". And the index is: ",index)
             //var numID = +maskID.substring(maskID.length-1)
+            var data = JSON.stringify({'objType': 'masks','objID':imgID});
+            //console.log(data)
 
-            var masks = usersDB[curUserID].images[curImageID][type]
-
-            for (item in masks) {
-                if (masks[item].id == maskID) {
-                    var mask = masks[item]
-                    break
+            $.ajax({
+                type: 'POST',
+                url: '/api/query-info/',
+                data: data,
+                contentType: 'application/json',
+                beforeSend: function (xhr) {
+                    if (csrftoken) {
+                        xhr.setRequestHeader("X-CSRFToken", csrftoken);
+                    }
+                },
+                success: function (response) {    
+                    var masks = response['masks']
+                    var mask = masks[maskType]
+                    var pts = eval(mask['maskPts'])[index-1]
+                    //console.log(mask)
+                    console.log(pts)
+                    loadControls(mask)
+                    plotOnePolygon(mask,pts)
                 }
-            }
+            })
 
-            if (!mask) {
-                console.log("Mask not found!")
-                return
-            }
-
-            loadControls(mask)
-            plotOnePolygon(mask)
+            
         });
     });
 
-    /**
-     * Polygon functions
-     */
+    //================================================================================================================================
+    // Polygon functions
+
     // Polt all masks on canvas1
     function plotAllMasks() {
 
         removeAllMask()
-        var imgObj = usersDB[curUserID].images[curImageID];
+        imgID = document.getElementById('imagePlaceholder1').getAttribute('value')
+        var data = JSON.stringify({'objType': 'masks','objID':imgID});
+        var csrftoken = getCSRFToken();
+
         mask_list = [];
 
-        ["IVD","PE","TS","AAP"].forEach((item) => {
+        // var response = queryDBInfo('masks',imgID)
+        $.ajax({
+            type: 'POST',
+            url: '/api/query-info/',
+            data: data,
+            contentType: 'application/json',
+            beforeSend: function (xhr) {
+                if (csrftoken) {
+                    xhr.setRequestHeader("X-CSRFToken", csrftoken);
+                }
+            },
+            success: function (response) {    
+                
+                var masks = response['masks']
 
-            for (let index in imgObj[item]) {
-                var mask = imgObj[item][index]
-                var points = mask.points
-                mask_list.push(mask.id)
+                mask_list = [];
 
-                var polygon = new fabric.Polygon(points, {
-                    stroke: mask.stroke,
-                    strokeWidth: 1,
-                    fill: structureColors[item],
-                    top:mask.top,
-                    left:mask.left,
-                    angle:mask.angle,
-                    objectCaching: false,
-                    transparentCorners: false,
-                    cornerColor: mask.cornerColor,
-                    opacity:mask.opacity,
+                ["IVD","PE","TS","AAP"].forEach((item) => {
+                    var mask = masks[item]
+                    var points = eval(mask['maskPts']) // convert list-string into list
+                    
+                    for (let index in points) {
+                        var id = parseInt(index) + 1
+                        mask_list.push(mask['maskType']+'_'+id)
+
+                        console.log("=== mask info ===")
+                        console.log(mask['maskStrokeColor'])
+                        console.log(structureColors[item])
+                        console.log(mask['maskTop'])
+                        console.log(mask['maskLeft'])
+                        console.log(mask['maskAngle'])
+                        console.log(mask['maskCornerColor'])
+                        console.log(mask['maskOpacity'])
+                        console.log("=== mask info end ===")
+
+                        var polygon = new fabric.Polygon(points[index], {
+                            stroke: mask['maskStrokeColor'],
+                            strokeWidth: 1,
+                            fill: structureColors[item],
+                            top:mask['maskTop'],
+                            left:mask['maskLeft'],
+                            angle:mask['maskAngle'],
+                            objectCaching: false,
+                            transparentCorners: false,
+                            cornerColor: mask['maskCornerColor'],
+                            opacity:mask['maskOpacity'],
+                        });
+
+                        //console.log(polygon)
+                        polygon.scale(mask.maskScale);
+                        canvas1.add(polygon);
+                        canvas2.add(polygon);
+                    }
                 });
-                polygon.scale(mask.Scale);
-                canvas1.add(polygon);
-                {#canvas2.add(polygon);#}
+                canvas1.renderAll();
+                {#canvas2.renderAll();#}
             }
         })
-        canvas1.renderAll();
-        {#canvas2.renderAll();#}
     }
 
     // polt one mask on canvas1
-    function plotOnePolygon(mask) {
-        var polygon = new fabric.Polygon(mask.points, {
-            stroke:mask.stroke,
+    function plotOnePolygon(mask,pts) {
+        var polygon = new fabric.Polygon(pts, {
+            stroke:mask.maskStrokeColor,
             strokeWidth: 1,
-            top:mask.top,
-            left:mask.left,
-            angle:mask.angle,
+            top:mask.maskTop,
+            left:mask.maskLeft,
+            angle:mask.maskAngle,
             objectCaching: false,
-            cornerColor:mask.cornerColor,
-            opacity:mask.opacity,
+            cornerColor:mask.maskCornerColor,
+            opacity:mask.maskOpacity,
         });
-        polygon.scale(mask.Scale);
+        polygon.scale(mask.maskScale);
         canvas1.add(polygon);
         canvas1.renderAll();
     }
@@ -615,32 +684,7 @@
         canvas1.remove(obj)
     }
 
-    // use to load the parameters when the mask is first created
-    function loadControls(mask) {
-        document.getElementById("top-control").value = mask.top;
-        document.getElementById("left-control").value = mask.left;
-        document.getElementById("opacity-control").value = mask.opacity;
-        document.getElementById("angle-control").value = mask.angle;
-        document.getElementById("scale-control").value = mask.Scale;
-        document.getElementById("cornerColor").value = mask.cornerColor;
-        document.getElementById("strokecolor").value = mask.stroke;
-        //document.getElementById("scaleY-control").value = mask.ScaleY;
-    }
 
-    // function to dynamic track the object manipulation
-    function updateControls() {
-        var canvas1Obj = canvas1.getActiveObject()
-        if (canvas1Obj) {
-            document.getElementById("top-control").value = canvas1Obj.top;
-            document.getElementById("left-control").value = canvas1Obj.left;
-            document.getElementById("opacity-control").value = canvas1Obj.opacity;
-            document.getElementById("angle-control").value = canvas1Obj.angle;
-            document.getElementById("scale-control").value = canvas1Obj.scaleX;
-            //document.getElementById("scaleY-control").value = mask.ScaleY;
-            document.getElementById("cornerColor").value = canvas1Obj.cornerColor;
-            document.getElementById("strokecolor").value = canvas1Obj.stroke;
-        }
-    }
 
     // Sync changes from canvas1 to canvas2 without copying the background image
     function syncCanvases(sourceCanvas, targetCanvas) {

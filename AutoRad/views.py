@@ -54,6 +54,7 @@ logger = logging.getLogger(__name__)
 @api_view(['POST'])
 def get_control_points(request):
     mask_path = request.data.get('mask_url')
+    img_ID = request.data.get('imgID')
     filename = unquote(mask_path).split('/')[-1]
     filename = filename.split('.')[0]
     mask_paths = []
@@ -61,16 +62,40 @@ def get_control_points(request):
     structure_cnt_points = {}
     for cls in classes:
         filename_cls = filename + '_' + cls + '.png'
-        tempMask = maskClass.objects.get(maskName = filename_cls)
+        tempMask = maskClass.objects.get(maskType = cls, imgID=img_ID)
         mask_cls_path = os.path.join(settings.MEDIA_ROOT, filename_cls)
-
+        # if (tempMask.maskPts != ""):
+        #     print("Segimentation has already been done!")
+        #     structure_cnt_points[cls] = eval(tempMask.maskPts) ## Due to field is a string. Need to convert it into desired format[{x:1,y:2},{...}]
+        # else:
         mask = cv2.imread(mask_cls_path, cv2.IMREAD_GRAYSCALE)
         mask = cv2.resize(mask, (500, 500))
         cnts, hier = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         cnts = sorted(cnts, key=cv2.contourArea)
         print(cls,"'s length: ", len(cnts))
-        structure_cnt_points[cls] = [cnt.tolist() for cnt in cnts]        
+        temp = [cnt.tolist() for cnt in cnts]
+        structure_cnt_points[cls]=[]
+        minX = 500
+        minY = 500
+        for pattern in temp:
+            # print("Patterns: ",pattern)
+            # structure_cnt_points[cls]
+            pnt_list = [dict(zip(["x","y"], pnt[0])) for pnt in pattern ]
+            # print(pnt_list)
+
+            for pnt in pattern[0]:
+                if minX > pnt[0]:
+                    minX = pnt[0]
+                if minY > pnt[1]:
+                    minY = pnt[1]
+
+            structure_cnt_points[cls].append(pnt_list)
+        print("Top: ",minX)
+        print("Left: ",minY)
+        tempMask.maskTop = minX
+        tempMask.maskLeft = minY  
         tempMask.maskPts = structure_cnt_points[cls]
+        # print(tempMask.maskPts)
         tempMask.save()
 
     return JsonResponse({'cls_cnt': structure_cnt_points})
@@ -136,6 +161,7 @@ def save_image(request):
 
 
 ### this is the placeholder for remove an image. It will redirect to delImg.html
+### Need some work on deletion confirmation.
 @api_view(['GET'])
 def del_image(request,imgId):
     image = imgClass.objects.filter(id=imgId)
@@ -145,6 +171,47 @@ def del_image(request,imgId):
     messages.success(request,"Image and related masks are successfully deleted!")
     return redirect('/')
     
+### Function to query the Sqlite3 DB for information
+@api_view(['POST'])
+def obtainInfo(request):
+    objType = request.data.get('objType')
+    objID = int(request.data.get('objID'))
+    outputJSON = {}
+    
+    if (objType == "image"):
+        objects = imgClass.objects.get(id = objID)
+    if (objType == "images"):
+        objects = imgClass.objects.filter(userAcc = objID)
+    if (objType == "mask"):
+        objects = maskClass.objects.get(id = objID)
+        
+    if (objType == "masks"):
+        objects = maskClass.objects.filter(imgID = objID)        
+        for item in objects:
+            outputJSON[item.maskType] = {'maskName':item.maskName,
+                        'maskType':item.maskType,
+                        # 'maskFile':item.maskFile, //Image field, can't be used as json response
+                        'maskPts':item.maskPts,
+                        'maskTop':item.maskTop,
+                        'maskLeft':item.maskLeft,
+                        'maskAngle':item.maskAngle,
+                        'maskScale':item.maskScale,
+                        'maskOpacity':item.maskOpacity,
+                        'maskCornerColor':item.maskCornerColor,
+                        'maskStrokeColor':item.maskStrokeColor
+                        }
+        print("==================================")
+        print("Query DB Successfully!")
+        print("==================================")
+        # print(objType,": ",outputJSON)
+        
+        return JsonResponse({'masks': outputJSON})
+    
+    print("Query DB Unsuccessfully!")
+    print("==================================")
+    print(objType," : ",objID)
+    print("==================================")
+    return Response({'error':'Invild input provided!'}, status=400)
     
 ### ====================================
 ### Function unused below
