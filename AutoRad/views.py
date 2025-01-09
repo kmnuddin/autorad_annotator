@@ -166,8 +166,10 @@ def save_image(request):
 def del_image(request,imgId):
     image = imgClass.objects.filter(id=imgId)
     masks = maskClass.objects.filter(imgID=imgId)
-    image.delete()
+    
     masks.delete()
+    image.delete()
+    
     messages.success(request,"Image and related masks are successfully deleted!")
     return redirect('/')
     
@@ -212,7 +214,47 @@ def obtainInfo(request):
     print(objType," : ",objID)
     print("==================================")
     return Response({'error':'Invild input provided!'}, status=400)
+
+### Function to update the Sqlite3 DB for information
+@api_view(['POST'])
+def updateInfo(request):
+    objType = request.data.get('objType')
+    objID = int(request.data.get('objID'))
+    objCategory = request.data.get('maskType')
+    newMask = dict(request.data.get('mask'))
+    print(newMask)
+    print(type(newMask))
+    # outputJSON = {}
     
+    if (objType == "image"):
+        image = imgClass.objects.get(id = objID)
+    
+    if (objType == "mask"):
+        
+        mask = maskClass.objects.get(imgID = objID, maskType = objCategory)        
+        mask.maskPts = newMask['maskPts']
+        mask.maskTop = newMask['maskTop']
+        mask.maskLeft = newMask['maskLeft']
+        mask.maskAngle = newMask['maskAngle']
+        mask.maskScale = newMask['maskScale']
+        mask.maskOpacity = newMask['maskOpacity']
+        mask.maskCornerColor = newMask['maskCornerColor']
+        mask.maskStrokeColor = newMask['maskStrokeColor']
+
+        mask.save()
+        
+        print("==================================")
+        print("DB updated Successfully!")
+        print("==================================")
+        
+        return Response({'Message':'Mask is updated successfully!'}, status=200)
+    
+    print("Query DB Unsuccessfully!")
+    print("==================================")
+    print(objType," : ",objID)
+    print("==================================")
+    return Response({'error':'Invild input provided!'}, status=400)
+
 ### ====================================
 ### Function unused below
 ### ====================================

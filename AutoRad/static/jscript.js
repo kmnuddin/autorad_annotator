@@ -70,16 +70,6 @@ function extractMasks() {
             } else {
                 console.log("pnts calculated error!")
             }
-            // var contours = response.cls_cnt;
-            // Object.keys(contours).forEach(function (cls){
-            //     contours[cls].forEach(function (contour){
-            //         var points = contour.map(function (pointWrapper){
-            //             var point = pointWrapper[0];
-            //             return {x: point[0], y: point[1]};
-            //         });
-            //         console.log(cls,": ",points)
-            //     });
-            // });
         }
     });
 }    

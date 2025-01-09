@@ -299,6 +299,7 @@
     document.getElementById("angle-control").oninput = function() {
         if (canvas1.getObjects().length == 1) {
             var obj = canvas1.item(0)
+            // canvas1.item(0)['centeredRotation'] = true
             obj.set("angle",parseInt(this.value, 10)).setCoords()
             canvas1.requestRenderAll()
         }
@@ -496,6 +497,7 @@
                         mask_list.push(mask['maskType']+'_'+id)
 
                         console.log("=== mask info ===")
+                        console.log(item)
                         console.log(mask['maskStrokeColor'])
                         console.log(structureColors[item])
                         console.log(mask['maskTop'])
@@ -519,7 +521,7 @@
                         });
 
                         //console.log(polygon)
-                        polygon.scale(mask.maskScale);
+                        polygon.scale(canvas1.width/320);
                         canvas1.add(polygon);
                         canvas2.add(polygon);
                     }
@@ -542,7 +544,7 @@
             cornerColor:mask.maskCornerColor,
             opacity:mask.maskOpacity,
         });
-        polygon.scale(mask.maskScale);
+        polygon.scale(canvas1.width/320);
         canvas1.add(polygon);
         canvas1.renderAll();
     }
@@ -640,40 +642,88 @@
     // reset mask
     function resetMask() {
         removeAllMask()
-        var maskID = document.getElementById('maskSelection').value;
-        var type = maskID.slice(0,-1)
-        var masks = usersDB[curUserID].images[curImageID][type]
-        for (item in masks) {
-            if (masks[item].id == maskID) {
-                var mask = masks[item]
-                break
-            }
-        }
+        var imgID = document.getElementById('imagePlaceholder1').getAttribute('value');
+        var mask_label = document.getElementById('maskSelection').value;
+        var maskType = mask_label.slice(0,-2)
+        var index = parseInt(mask_label.charAt(mask_label.length - 1))
+        var csrftoken = getCSRFToken();
 
-        loadControls(mask)
-        plotOnePolygon(mask)
+        var data = JSON.stringify({'objType': 'masks','objID':imgID});
+
+        $.ajax({
+            type: 'POST',
+            url: '/api/query-info/',
+            data: data,
+            contentType: 'application/json',
+            beforeSend: function (xhr) {
+                if (csrftoken) {
+                    xhr.setRequestHeader("X-CSRFToken", csrftoken);
+                }
+            },
+            success: function (response) {    
+                var masks = response['masks']
+                var mask = masks[maskType]
+                var pts = eval(mask['maskPts'])[index-1]
+                loadControls(mask)
+                plotOnePolygon(mask,pts)
+            }
+        })
     }
 
     // save mask parameters
     function saveMask() {
 
-        var maskID = document.getElementById('maskSelection').value;
-        var type = maskID.slice(0,-1)
-        var masks = usersDB[curUserID].images[curImageID][type]
-        for (item in masks) {
-            if (masks[item].id == maskID) {
-                var mask = masks[item]
-                break
-            }
-        }
+        var imgID = document.getElementById('imagePlaceholder1').getAttribute('value');
+        var mask_label = document.getElementById('maskSelection').value;
+        var maskType = mask_label.slice(0,-2)
+        var index = parseInt(mask_label.charAt(mask_label.length - 1))
+        var csrftoken = getCSRFToken();
 
-        mask.top = parseInt(document.getElementById("top-control").value,10)
-        mask.left = parseInt(document.getElementById("left-control").value,10)
-        mask.opacity = parseFloat(document.getElementById("opacity-control").value)
-        mask.angle = parseInt(document.getElementById("angle-control").value,10)
-        mask.Scale = parseFloat(document.getElementById("scale-control").value)
-        mask.stroke = document.getElementById("strokecolor").value
-        mask.cornerColor = document.getElementById("cornerColor").value
+        var data = JSON.stringify({'objType': 'masks','objID':imgID});
+
+        $.ajax({
+            type: 'POST',
+            url: '/api/query-info/',
+            data: data,
+            contentType: 'application/json',
+            beforeSend: function (xhr) {
+                if (csrftoken) {
+                    xhr.setRequestHeader("X-CSRFToken", csrftoken);
+                }
+            },
+            success: function (response) {    
+                var masks = response['masks']
+                var mask = masks[maskType]
+                // var pts = eval(mask['maskPts'])[index-1]
+                mask.maskTop = parseInt(document.getElementById("top-control").value,10)
+                mask.maskLeft = parseInt(document.getElementById("left-control").value,10)
+                mask.maskOpacity = parseFloat(document.getElementById("opacity-control").value)
+                mask.maskAngle = parseInt(document.getElementById("angle-control").value,10)
+                mask.maskScale = parseFloat(document.getElementById("scale-control").value)
+                mask.maskStrokeColor = document.getElementById("strokecolor").value
+                mask.maskCornerColor = document.getElementById("cornerColor").value                
+
+                console.log("====Save Testing====")
+                console.log(mask)
+                console.log("====End Save Testing====")
+                $.ajax({
+                    type: 'POST',
+                    url: '/api/update-info/',
+                    data: JSON.stringify({'objType': 'mask', 'objID':imgID, 'maskType': maskType, 'mask':mask}),
+                    contentType: 'application/json',
+                    beforeSend: function (xhr) {
+                        if (csrftoken) {
+                            xhr.setRequestHeader("X-CSRFToken", csrftoken);
+                        }
+                    },
+                    success: function (response) {
+                        console.log(response.message)
+                    }
+                })
+            }
+        })
+
+        
 
     }
 
@@ -683,8 +733,6 @@
         var result = alert("It will be removed and can't be undo")
         canvas1.remove(obj)
     }
-
-
 
     // Sync changes from canvas1 to canvas2 without copying the background image
     function syncCanvases(sourceCanvas, targetCanvas) {
