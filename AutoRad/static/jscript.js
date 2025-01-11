@@ -4,7 +4,6 @@ var curImageID;
 var globalMaskClassPaths = [];  // This variable is used in other places to record the image path, think about pypass this function to DB
 var mask_path;
 var mask_list = [];
-// var query_result={}
 
 // unknow variables, need validatation or removed.
 var structureLayers = [];
@@ -13,13 +12,13 @@ var structureLayers = [];
 var usersDB = {}
 
 /**
- * Query the SQLite3 created by django
+ * Query the SQLite3 created by django, Only used in Consoler, not in functions.
  * @param {string} objType 
  * @param {int} objID 
  */
-function queryDBInfo(objType,objID) {
+function queryDBInfo(data) {
 
-    var data = JSON.stringify({'objType':objType,'objID':objID});
+    // var data = JSON.stringify({'objType':objType,'objID':objID});
     var csrftoken = getCSRFToken();
     var query_result = {}
     $.ajax({
@@ -109,7 +108,7 @@ function createOptionsMask() {
         dropdownList.remove(i)
     }
 
-    mask_list.forEach(option => {
+    pattern_list.forEach(option => {
         var opt = document.createElement("option")
         opt.value=option
         opt.textContent=option

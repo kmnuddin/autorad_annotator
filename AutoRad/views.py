@@ -20,12 +20,15 @@ import json
 from django.contrib import messages
 from django.http import HttpResponse
 
+# ===============================
 # import customized class models
-from .models import patientClass,reportClass,imgClass,maskClass
+from .models import imgClass,maskClass,patternClass
+# ===============================
 
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
 
+# Sign up
 class SignUpView(CreateView):
     form_class = UserCreationForm
     template_name = 'registration/signup.html'
@@ -38,8 +41,14 @@ class SignUpView(CreateView):
         login(self.request, user)  # Automatically log in the user after registration
         return response
 
+### When homepage is loading, it will pull all the image satisfying the filters from DB.
+#   under the current user OR
+#   under certain Project (need code changing on model to include the new field)
+#   To do:
+#   1. Model.py to include the new field project
+#   2. After 1, change the filter to filtered by project selected
+#   3. On saveImg.html, have the project input field. Have some default value.
 @login_required
-### When homepage is loading, it will pull all the image under the current user from DB.
 def home(request):
     images = imgClass.objects.filter(userAcc = request.user)
     # print(images)
@@ -48,16 +57,18 @@ def home(request):
     return render(request,'home.html',context)
     # return render(request, 'home.html')
 
-logger = logging.getLogger(__name__)
 
 ### Used to analysis each mask and do separation and save sigmentations' information to the mask.
+# to do: 
+# 1. try to remove mask file
+# 2. rename the function
+# 3. fix the coordinates' issue
 @api_view(['POST'])
 def get_control_points(request):
     mask_path = request.data.get('mask_url')
     img_ID = request.data.get('imgID')
     filename = unquote(mask_path).split('/')[-1]
     filename = filename.split('.')[0]
-    mask_paths = []
     classes = ["IVD", "PE", "TS", "AAP"]
     structure_cnt_points = {}
     for cls in classes:
@@ -69,31 +80,57 @@ def get_control_points(request):
         #     structure_cnt_points[cls] = eval(tempMask.maskPts) ## Due to field is a string. Need to convert it into desired format[{x:1,y:2},{...}]
         # else:
         mask = cv2.imread(mask_cls_path, cv2.IMREAD_GRAYSCALE)
-        mask = cv2.resize(mask, (500, 500))
+        # mask = cv2.resize(mask, (500, 500))
         cnts, hier = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         cnts = sorted(cnts, key=cv2.contourArea)
         print(cls,"'s length: ", len(cnts))
+        # print(hier)
         temp = [cnt.tolist() for cnt in cnts]
         structure_cnt_points[cls]=[]
-        minX = 500
-        minY = 500
+        GminX = 500
+        GminY = 500
         for pattern in temp:
             # print("Patterns: ",pattern)
             # structure_cnt_points[cls]
             pnt_list = [dict(zip(["x","y"], pnt[0])) for pnt in pattern ]
             # print(pnt_list)
-
-            for pnt in pattern[0]:
-                if minX > pnt[0]:
-                    minX = pnt[0]
-                if minY > pnt[1]:
-                    minY = pnt[1]
-
+            LminX = 500
+            LminY = 500
+            
+            for pnt in pnt_list:
+                # print(pnt)
+                if GminX > pnt['x']:
+                    GminX = pnt['x']
+                if GminY > pnt['y']:
+                    GminY = pnt['y']
+                if LminX > pnt['x']:
+                    LminX = pnt['x']
+                if LminY > pnt['y']:
+                    LminY = pnt['y']
+            print(LminY," ",LminX)
+            # print("Pattern: ",pnt_list)
             structure_cnt_points[cls].append(pnt_list)
-        print("Top: ",minX)
-        print("Left: ",minY)
-        tempMask.maskTop = minX
-        tempMask.maskLeft = minY  
+            
+            name = cls + "_" + str(int(temp.index(pattern)) + 1)
+            patternsExisted = patternClass.objects.filter(patternName = name, maskID = tempMask.id)
+            if (len(patternsExisted)==0):
+                tempPattern = patternClass()
+                tempPattern.patternName = name
+                tempPattern.patternType = cls
+                tempPattern.patternPts = pnt_list
+                tempPattern.patternTop = LminY
+                tempPattern.patternLeft = LminX
+                tempPattern.maskID = tempMask
+                
+                tempPattern.save()
+                # print(tempPattern)
+            else:
+                print("Pattern ",name," existed!")
+            
+        # print("Top: ",GmaxY)
+        # print("Left: ",GminX)
+        tempMask.maskTop = GminY
+        tempMask.maskLeft = GminX  
         tempMask.maskPts = structure_cnt_points[cls]
         # print(tempMask.maskPts)
         tempMask.save()
@@ -102,6 +139,9 @@ def get_control_points(request):
 
 
 ### Used to save image, and Masks to DB
+# to do: 
+# 1. Add project field.
+# 2. remove mask image if possible.
 @api_view(['POST','GET'])
 def save_image(request):
     if request.method == 'POST':
@@ -133,7 +173,7 @@ def save_image(request):
             
             mask_img_filename = filename.split('.')[0] + '.jpg'
             mask_save_path = os.path.join(settings.MEDIA_ROOT, mask_img_filename)
-            plt.imsave(mask_save_path, full_mask, cmap='gray')  # Save as .jpg， will not be recorded in DB.
+            plt.imsave(mask_save_path, full_mask, cmap='gray')  # Save as .jpg， will not be recorded in DB, or do we need it?
             
             classes = ["IVD", "PE", "TS", "AAP"]
             for i in range(1, mask_np.shape[1]):
@@ -142,7 +182,7 @@ def save_image(request):
                 
                 class_fname = filename.split('.')[0]+ '_' + cls + '.png'
                 class_save_path = os.path.join(settings.MEDIA_ROOT, class_fname)
-                plt.imsave(class_save_path, np.squeeze(mask)[i], cmap='gray')
+                plt.imsave(class_save_path, np.squeeze(mask_np)[i], cmap='gray')
                 
                 ### Save mask information in diff categories
                 tempMask = maskClass()
@@ -176,38 +216,100 @@ def del_image(request,imgId):
 ### Function to query the Sqlite3 DB for information
 @api_view(['POST'])
 def obtainInfo(request):
+    jobs = request.data
+    print(jobs)
     objType = request.data.get('objType')
     objID = int(request.data.get('objID'))
     outputJSON = {}
     
     if (objType == "image"):
-        objects = imgClass.objects.get(id = objID)
+        object = imgClass.objects.get(id = objID)
+        outputJSON = {
+            'imgName':object.imgName,
+            'width':object.width,
+            'height':object.height,
+            'type': object.type,
+            'created_at': object.created_at,
+            'modified_at': object.modified_at
+        }
+        print("==================================")
+        print(objType, " Query DB Successfully!")
+        print("==================================")
+        return JsonResponse({'image': outputJSON})
     if (objType == "images"):
         objects = imgClass.objects.filter(userAcc = objID)
     if (objType == "mask"):
-        objects = maskClass.objects.get(id = objID)
+        objCategory = request.data.get('objCategory')
+        objects = maskClass.objects.get(imgID = objID,maskType = objCategory)
         
     if (objType == "masks"):
         objects = maskClass.objects.filter(imgID = objID)        
         for item in objects:
-            outputJSON[item.maskType] = {'maskName':item.maskName,
-                        'maskType':item.maskType,
-                        # 'maskFile':item.maskFile, //Image field, can't be used as json response
-                        'maskPts':item.maskPts,
-                        'maskTop':item.maskTop,
-                        'maskLeft':item.maskLeft,
-                        'maskAngle':item.maskAngle,
-                        'maskScale':item.maskScale,
-                        'maskOpacity':item.maskOpacity,
-                        'maskCornerColor':item.maskCornerColor,
-                        'maskStrokeColor':item.maskStrokeColor
-                        }
+            outputJSON[item.maskType] = {
+                'maskID':item.id,
+                'maskName':item.maskName,
+                'maskType':item.maskType,
+                # 'maskFile':item.maskFile, //Image field, can't be used as json response
+                'maskPts':item.maskPts,
+                'maskTop':item.maskTop,
+                'maskLeft':item.maskLeft,
+                'maskAngle':item.maskAngle,
+                'maskScale':item.maskScale,
+                'maskOpacity':item.maskOpacity,
+                'maskCornerColor':item.maskCornerColor,
+                'maskStrokeColor':item.maskStrokeColor
+                }
         print("==================================")
-        print("Query DB Successfully!")
+        print(objType, " Query DB Successfully!")
         print("==================================")
         # print(objType,": ",outputJSON)
         
         return JsonResponse({'masks': outputJSON})
+    
+    if (objType == "pattern"):
+        objCategory = request.data.get('objCategory')
+        objName = request.data.get('objName')
+        mask = maskClass.objects.get(imgID = objID,maskType = objCategory)
+        pattern = patternClass.objects.get(maskID = mask.id, patternName = objName)
+        
+        outputJSON[pattern.patternName] = {
+            'patternName': pattern.patternName,
+            'patternType': pattern.patternType,
+            'patternPts': pattern.patternPts,
+            'patternTop':pattern.patternTop,
+            'patternLeft':pattern.patternLeft,
+            'patternAngle':pattern.patternAngle,
+            'patternScale':pattern.patternScale,
+            'patternOpacity':pattern.patternOpacity,
+            'patternCornerColor':pattern.patternCornerColor,
+            'patternStrokeColor':pattern.patternStrokeColor
+        }
+        print("==================================")
+        print(objType, " Query DB Successfully!")
+        print("==================================")
+        return JsonResponse({'pattern': outputJSON})
+    
+    if (objType == "patterns"): # Query all patterns for an image.
+        masks = maskClass.objects.filter(imgID = objID)
+        for mask in masks:
+            patterns = patternClass.objects.filter(maskID = mask.id)
+            for pattern in patterns:
+                outputJSON[pattern.patternName] = {
+                    'patternName': pattern.patternName,
+                    'patternType': pattern.patternType,
+                    'patternPts': pattern.patternPts,
+                    'patternTop':pattern.patternTop,
+                    'patternLeft':pattern.patternLeft,
+                    'patternAngle':pattern.patternAngle,
+                    'patternScale':pattern.patternScale,
+                    'patternOpacity':pattern.patternOpacity,
+                    'patternCornerColor':pattern.patternCornerColor,
+                    'patternStrokeColor':pattern.patternStrokeColor
+                }
+        print("==================================")
+        print(objType, " Query DB Successfully!")
+        print("==================================")
+        return JsonResponse({'patterns': outputJSON})
     
     print("Query DB Unsuccessfully!")
     print("==================================")
@@ -258,6 +360,8 @@ def updateInfo(request):
 ### ====================================
 ### Function unused below
 ### ====================================
+
+# logger = logging.getLogger(__name__)
 
 # @api_view(['POST'])
 # def view_mask(request):

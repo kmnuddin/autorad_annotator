@@ -327,14 +327,14 @@
     }
     
     // use to load the parameters when the mask is first created
-    function loadControls(mask) {
-        document.getElementById("top-control").value = mask.maskTop;
-        document.getElementById("left-control").value = mask.maskLeft;
-        document.getElementById("opacity-control").value = mask.maskOpacity;
-        document.getElementById("angle-control").value = mask.maskAngle;
-        document.getElementById("scale-control").value = mask.maskScale;
-        document.getElementById("cornerColor").value = mask.maskCornerColor;
-        document.getElementById("strokecolor").value = mask.maskStrokeColor;
+    function loadControls(pattern) {
+        document.getElementById("top-control").value = pattern.patternTop;
+        document.getElementById("left-control").value = pattern.patternLeft;
+        document.getElementById("opacity-control").value = pattern.patternOpacity;
+        document.getElementById("angle-control").value = pattern.patternAngle;
+        document.getElementById("scale-control").value = pattern.patternkScale;
+        document.getElementById("cornerColor").value = pattern.patternCornerColor;
+        document.getElementById("strokecolor").value = pattern.patternStrokeColor;
         //document.getElementById("scaleY-control").value = mask.ScaleY;
     }
 
@@ -368,8 +368,6 @@
         canvas2.renderAll();
     }
 
-    canvas1.renderAll()
-
     //================================================================================================================================
     // Zoom in/out function
     canvas1.on('mouse:wheel', function(opt) {
@@ -393,7 +391,11 @@
         var mri_path = document.getElementById('imagePlaceholder1').src;
         fabric.Image.fromURL(mri_path, function(img) {
 
-            console.log(img)
+            console.log('Image Width: ',img.width)
+            console.log('Image Height: ',img.height)
+            console.log('canvas1 Width: ',canvas1.width)
+            console.log('canvas1 Height: ',canvas1.height)
+
                 //Set the image as the background
                 canvas1.setBackgroundImage(img, canvas1.renderAll.bind(canvas1), {
                 scaleX: canvas1.width / img.width,
@@ -428,9 +430,9 @@
             //console.log(maskType)
             var index = parseInt(mask_label.charAt(mask_label.length - 1))
             var csrftoken = getCSRFToken();
-            console.log("Current mask type is: ", maskType, ". And the index is: ",index)
+            console.log("Current mask type is: ", maskType, ". And the pattern number is: ",index)
             //var numID = +maskID.substring(maskID.length-1)
-            var data = JSON.stringify({'objType': 'masks','objID':imgID});
+            var data = JSON.stringify({'objType': 'pattern','objID':imgID, 'objCategory':maskType, 'objName':mask_label});
             //console.log(data)
 
             $.ajax({
@@ -444,13 +446,10 @@
                     }
                 },
                 success: function (response) {    
-                    var masks = response['masks']
-                    var mask = masks[maskType]
-                    var pts = eval(mask['maskPts'])[index-1]
-                    //console.log(mask)
-                    console.log(pts)
-                    loadControls(mask)
-                    plotOnePolygon(mask,pts)
+                    var pattern = response['pattern'][mask_label]
+                    var pts = eval(pattern['patternPts'])
+                    loadControls(pattern)
+                    plotOnePolygon(pattern,pts)
                 }
             })
 
@@ -461,14 +460,78 @@
     //================================================================================================================================
     // Polygon functions
 
-    // Polt all masks on canvas1
+    // Polt all patterns on canvas1
     function plotAllMasks() {
+
+        removeAllMask()
+        imgID = document.getElementById('imagePlaceholder1').getAttribute('value')
+        var data = JSON.stringify({'objType': 'patterns','objID':imgID});
+        var csrftoken = getCSRFToken();
+        var image = queryDBInfo('image',imgID)
+        pattern_list = []
+
+        // var response = queryDBInfo('masks',imgID)
+        $.ajax({
+            type: 'POST',
+            url: '/api/query-info/',
+            data: data,
+            contentType: 'application/json',
+            beforeSend: function (xhr) {
+                if (csrftoken) {
+                    xhr.setRequestHeader("X-CSRFToken", csrftoken);
+                }
+            },
+            success: function (response) {    
+                
+                var patterns = response['patterns']
+                for (const [patternName,pattern] of Object.entries(patterns)) {
+                    pattern_list.push(patternName)
+                    console.log("=== pattern info ===")
+                    console.log('patternName: ',pattern['patternName'])
+                    console.log('patternType: ',pattern['patternType'])
+                    console.log('patternPts: ',pattern['patternPts'])
+                    console.log('structureColors: ',structureColors[pattern['patternType']])
+                    console.log('patternTop: ',pattern['patternTop'])
+                    console.log('patternLeft: ',pattern['patternLeft'])
+                    console.log('patternAngle: ',pattern['patternAngle'])
+                    console.log('patternStrokeColor: ',pattern['patternStrokeColor'])
+                    console.log('patternCornerColor: ',pattern['patternCornerColor'])
+                    console.log('patternOpacity: ',pattern['patternOpacity'])
+                    console.log("=== pattern info end ===")
+                    
+                    scale = canvas1.width/320
+
+                    var polygon = new fabric.Polygon(eval(pattern['patternPts']), {
+                        stroke: pattern['patternStrokeColor'],
+                        strokeWidth: 1,
+                        fill: structureColors[pattern['patternType']],
+                        top:pattern['patternTop']*scale,
+                        left:pattern['patternLeft']*scale,
+                        angle:pattern['patternAngle'],
+                        objectCaching: false,
+                        transparentCorners: false,
+                        cornerColor: pattern['patternCornerColor'],
+                        opacity:pattern['patternOpacity'],
+                    });
+
+                    polygon.scale(scale);
+                    canvas1.add(polygon);
+                    canvas2.add(polygon);
+                }
+                canvas1.renderAll();
+                {#canvas2.renderAll();#}
+            }
+        })
+    }
+
+    // Old Polt all patterns on canvas1
+    function plotAllMasksx() {
 
         removeAllMask()
         imgID = document.getElementById('imagePlaceholder1').getAttribute('value')
         var data = JSON.stringify({'objType': 'masks','objID':imgID});
         var csrftoken = getCSRFToken();
-
+        var image = queryDBInfo('image',imgID)
         mask_list = [];
 
         // var response = queryDBInfo('masks',imgID)
@@ -498,6 +561,7 @@
 
                         console.log("=== mask info ===")
                         console.log(item)
+                        console.log(mask['maskID'])
                         console.log(mask['maskStrokeColor'])
                         console.log(structureColors[item])
                         console.log(mask['maskTop'])
@@ -533,16 +597,16 @@
     }
 
     // polt one mask on canvas1
-    function plotOnePolygon(mask,pts) {
+    function plotOnePolygon(pattern,pts) {
         var polygon = new fabric.Polygon(pts, {
-            stroke:mask.maskStrokeColor,
+            stroke:pattern.patternStrokeColor,
             strokeWidth: 1,
-            top:mask.maskTop,
-            left:mask.maskLeft,
-            angle:mask.maskAngle,
+            top:pattern.patternTop*canvas1.width/320,
+            left:pattern.patternLeft*canvas1.width/320,
+            angle:pattern.patternkAngle,
             objectCaching: false,
-            cornerColor:mask.maskCornerColor,
-            opacity:mask.maskOpacity,
+            cornerColor:pattern.patternCornerColor,
+            opacity:pattern.patternOpacity,
         });
         polygon.scale(canvas1.width/320);
         canvas1.add(polygon);
