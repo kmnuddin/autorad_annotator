@@ -321,18 +321,15 @@ def obtainInfo(request):
 @api_view(['POST'])
 def updateInfo(request):
     objType = request.data.get('objType')
-    objID = int(request.data.get('objID'))
-    objCategory = request.data.get('maskType')
-    newMask = dict(request.data.get('mask'))
-    print(newMask)
-    print(type(newMask))
-    # outputJSON = {}
     
     if (objType == "image"):
         image = imgClass.objects.get(id = objID)
     
-    if (objType == "mask"):
+    if (objType == "mask"): 
         
+        objID = int(request.data.get('objID'))
+        objCategory = request.data.get('maskType')
+        newMask = dict(request.data.get('mask'))       
         mask = maskClass.objects.get(imgID = objID, maskType = objCategory)        
         mask.maskPts = newMask['maskPts']
         mask.maskTop = newMask['maskTop']
@@ -347,6 +344,32 @@ def updateInfo(request):
         
         print("==================================")
         print("DB updated Successfully!")
+        print("==================================")
+        
+        return Response({'Message':'Mask is updated successfully!'}, status=200)
+    
+    if (objType == "pattern"):
+        objID = int(request.data.get('objID'))
+        objCategory = request.data.get('maskType')
+        objName = request.data.get('objName')
+        mask = maskClass.objects.get(imgID = objID,maskType = objCategory)
+        pattern = patternClass.objects.get(maskID = mask.id, patternName = objName)
+        newPattern = dict(request.data.get('pattern'))
+        pattern.patternName = newPattern['patternName']
+        pattern.patternType = newPattern['patternType']
+        pattern.patternPts = newPattern['patternPts']
+        pattern.patternTop = newPattern['patternTop']
+        pattern.patternLeft = newPattern['patternLeft']
+        pattern.patternAngle = newPattern['patternAngle']
+        pattern.patternScale = newPattern['patternScale']
+        pattern.patternOpacity = newPattern['patternOpacity']
+        pattern.patternCornerColor = newPattern['patternCornerColor']
+        pattern.patternStrokeColor = newPattern['patternStrokeColor']
+        
+        pattern.save(force_update=True)    
+        
+        print("==================================")
+        print(objType," DB updated Successfully!")
         print("==================================")
         
         return Response({'Message':'Mask is updated successfully!'}, status=200)

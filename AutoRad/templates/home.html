@@ -712,7 +712,7 @@
         var index = parseInt(mask_label.charAt(mask_label.length - 1))
         var csrftoken = getCSRFToken();
 
-        var data = JSON.stringify({'objType': 'masks','objID':imgID});
+        var data = JSON.stringify({'objType': 'pattern','objID':imgID,'objName':mask_label,'objCategory':maskType});
 
         $.ajax({
             type: 'POST',
@@ -725,11 +725,10 @@
                 }
             },
             success: function (response) {    
-                var masks = response['masks']
-                var mask = masks[maskType]
-                var pts = eval(mask['maskPts'])[index-1]
-                loadControls(mask)
-                plotOnePolygon(mask,pts)
+                var pattern = response['pattern'][mask_label]
+                var pts = eval(pattern['patternPts'])
+                loadControls(pattern)
+                plotOnePolygon(pattern,pts)
             }
         })
     }
@@ -743,8 +742,9 @@
         var index = parseInt(mask_label.charAt(mask_label.length - 1))
         var csrftoken = getCSRFToken();
 
-        var data = JSON.stringify({'objType': 'masks','objID':imgID});
+        var data = JSON.stringify({'objType': 'pattern','objID':imgID,'objName':mask_label,'objCategory':maskType});
 
+        // Query before saving is to prevent saving with empty values which will cause error.
         $.ajax({
             type: 'POST',
             url: '/api/query-info/',
@@ -756,24 +756,24 @@
                 }
             },
             success: function (response) {    
-                var masks = response['masks']
-                var mask = masks[maskType]
+                var pattern = response['pattern'][mask_label]
+                var timer = canvas1.width/320
                 // var pts = eval(mask['maskPts'])[index-1]
-                mask.maskTop = parseInt(document.getElementById("top-control").value,10)
-                mask.maskLeft = parseInt(document.getElementById("left-control").value,10)
-                mask.maskOpacity = parseFloat(document.getElementById("opacity-control").value)
-                mask.maskAngle = parseInt(document.getElementById("angle-control").value,10)
-                mask.maskScale = parseFloat(document.getElementById("scale-control").value)
-                mask.maskStrokeColor = document.getElementById("strokecolor").value
-                mask.maskCornerColor = document.getElementById("cornerColor").value                
+                pattern.patternTop = parseInt(document.getElementById("top-control").value,10)/timer
+                pattern.patternLeft = parseInt(document.getElementById("left-control").value,10)/timer
+                pattern.patternOpacity = parseFloat(document.getElementById("opacity-control").value)
+                pattern.patternAngle = parseInt(document.getElementById("angle-control").value,10)
+                pattern.patternScale = parseFloat(document.getElementById("scale-control").value)
+                pattern.patternStrokeColor = document.getElementById("strokecolor").value
+                pattern.patternCornerColor = document.getElementById("cornerColor").value                
 
                 console.log("====Save Testing====")
-                console.log(mask)
+                console.log(pattern)
                 console.log("====End Save Testing====")
                 $.ajax({
                     type: 'POST',
                     url: '/api/update-info/',
-                    data: JSON.stringify({'objType': 'mask', 'objID':imgID, 'maskType': maskType, 'mask':mask}),
+                    data: JSON.stringify({'objType': 'pattern', 'objID':imgID, 'maskType': maskType, 'objName':mask_label,'pattern':pattern}),
                     contentType: 'application/json',
                     beforeSend: function (xhr) {
                         if (csrftoken) {
