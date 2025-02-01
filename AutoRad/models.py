@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
 import os
 
 ### Each user will have multiple imgs:   user --[1 to many] --> img
@@ -25,36 +26,60 @@ class reportClass(models.Model):
     
     # patientID = models.ForeignKey(patientClass,on_delete=models.CASCADE,default="000000000000")
     
-class imgClass(models.Model):
-    # imgKey = models.CharField(max_length=100,help_text="The public ID of the upoloaded file.",default="000000000000")
-    imgName = models.CharField(max_length=100,help_text="The name of the uploaded image.",default="example_image.png")
-    # url = models.CharField(max_length=100,default='./media')
-    imgFile = models.ImageField(upload_to='.')
-    width = models.IntegerField(help_text="Width in px",default=320)
-    height = models.IntegerField(help_text="height in px",default=320)
-    type = models.CharField(max_length=10,default="image/*")
-    created_at = models.DateTimeField(auto_now_add=True)
-    modified_at = models.DateTimeField(auto_now=True)
-    
-    userAcc = models.ForeignKey(User, on_delete=models.SET_DEFAULT,default="1")
-    
     # reportID = models.ForeignKey(reportClass,on_delete=models.CASCADE,default="1")
     
-class maskClass(models.Model):
-    maskName = models.CharField(max_length=200,help_text="The name of the mask",default="example_mask.png")
-    maskType = models.CharField(max_length=200,help_text="The type of the mask, ",default="Type1")
-    maskFile = models.ImageField(upload_to='.')
-    maskPts = models.CharField(max_length=1000,default="[]")
-    maskTop = models.IntegerField(default=0)
-    maskLeft = models.IntegerField(default=0)
-    maskAngle = models.FloatField(default=0.0)
-    maskScale = models.FloatField(default=1.0)
-    maskOpacity = models.FloatField(default=1.0)
-    maskCornerColor = models.CharField(max_length = 7, help_text = "The color code for corner",default="#0000ff")
-    maskStrokeColor = models.CharField(max_length = 7, help_text = "The color code for line",default="#ff0000")
-    
-    imgID = models.ForeignKey(imgClass,on_delete=models.SET_DEFAULT,default="1")
-    
+class MRI(models.Model):
+    filename = models.CharField(max_length=200, default="example_image.png")
+    filetype = models.CharField(max_length=30, default="image/png")
+    path = models.ImageField(upload_to='.')
+    width = models.IntegerField(default=320)
+    height = models.IntegerField(default=320)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    user = models.ForeignKey(User, on_delete=models.SET_DEFAULT, default="-1")
+
+
+class UNetMask(models.Model):
+    """
+    Combine both the original UNet mask and
+    the edited version in this same model.
+    """
+    MRI = models.ForeignKey(MRI, on_delete=models.SET_DEFAULT, default="-1")
+
+    mask_img_filename = models.CharField(max_length=200, default="example_mask.png")
+    mask_img_path = models.ImageField(upload_to='.', default="image/mask")
+    mask_npy_filename = models.CharField(max_length=200, default="example_mask.npy")
+    mask_npy_path = models.CharField(max_length=200, default='media/example_mask.npy')
+    width = models.IntegerField(default=320)
+    height = models.IntegerField(default=320)
+
+    # e.g., "original", "edited" or "v1", "v2", etc.
+    mask_version = models.CharField(max_length=20, default="original")
+
+    # track if user has manually edited it
+    edited = models.BooleanField(default=False)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+
+class UNetMaskStructure(models.Model):
+    """
+    Store structures (e.g. “IVD”, “PE”) for *any* UNet mask,
+    whether original or edited. All in one table.
+    """
+    unet_mask = models.ForeignKey(UNetMask, on_delete=models.SET_DEFAULT, default=-1)
+
+    structure = models.CharField(max_length=50, default="")
+    filename = models.CharField(max_length=200, default="")
+    path = models.ImageField(upload_to='.', default="image/mask")
+    width = models.IntegerField(default=320)
+    height = models.IntegerField(default=320)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+
 class testClass(models.Model):
     fn = models.CharField(max_length=10,default="John")
     ln = models.CharField(max_length=10,default="Doe")

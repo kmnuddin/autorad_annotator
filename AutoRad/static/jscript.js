@@ -1,6 +1,7 @@
 // Global variables to store information
 var curUserID;
 var curImageID;
+var curMaskID;
 var globalMaskClassPaths = [];  // This variable is used in other places to record the image path, think about pypass this function to DB
 var mask_path;
 var mask_list = [];
@@ -194,7 +195,7 @@ function extractMasks() {
 
     var mri_path = document.getElementById('imagePlaceholder1').src;
     var mask_path = document.getElementById('imagePlaceholder2').src;
-    var data = JSON.stringify({'mask_url': mask_path});
+    var data = JSON.stringify({'mask_url': mask_path, 'mask_id': curMaskID});
     var csrftoken = getCSRFToken();
 
     var imgExistBln = false;    // added
@@ -301,16 +302,16 @@ function getCSRFToken() {
  * This function will upload the image to the model and generate the components output png files in media folder 
  */
 function uploadImage() {
-    var formData = new FormData();
-    formData.append('image', $('#imageUpload')[0].files[0]);
+    var img_path = document.getElementById('imagePlaceholder1').src;
+    var data = JSON.stringify({ 'img_path': img_path });
     var csrftoken = getCSRFToken();
-    console.log(formData);
+
     $.ajax({
         type: 'POST',
         url: '/api/process-image/',
-        data: formData,
+        data: data,
         processData: false,
-        contentType: false,
+        contentType: 'application/json',
         beforeSend: function(xhr) {
             if (csrftoken) {
                 xhr.setRequestHeader("X-CSRFToken", csrftoken);
@@ -319,12 +320,12 @@ function uploadImage() {
         success: function(response) {
             // Extract relevant data from the response
             var maskUrl = response.mask_url;
-
+            curMaskID = response.mask_id;
             // Second API call: view_mask
             $.ajax({
                 type: 'POST',
                 url: '/api/view-mask/',
-                data: JSON.stringify({ 'mask_url': maskUrl }),  // Pass relevant data to the second API
+                data: JSON.stringify({ 'mask_url': maskUrl, 'mask_id': curMaskID }),  // Pass relevant data to the second API
                 contentType: 'application/json',
                 beforeSend: function(xhr) {
                     if (csrftoken) {
@@ -332,7 +333,7 @@ function uploadImage() {
                     }
                 },
                 success: function(viewMaskResponse) {
-                    $('#imagePlaceholder2').attr('src', viewMaskResponse.mask_url)
+                    $('#imagePlaceholder2').attr('src', viewMaskResponse.mask_url);
                     globalMaskClassPaths = viewMaskResponse.mask_class_paths;
                     mask_path = viewMaskResponse.mask_url;
                 },
@@ -353,6 +354,7 @@ function selectAll() {
     var checkAllBox = document.getElementById("selectAllChkBox")
 
     if (checkAllBox.checked) {
+        plotAllMasks();
         dropdown.disabled = true
     } else {
         dropdown.disabled = false
@@ -395,59 +397,83 @@ function loadThisImg(imgSrc) {
     
 }
 
-function loadAndProcessThisImg(imgSrc) {
+function loadAndProcessThisImg(mri_id) {
+    // Hide the image list first
     hideImageList();
-    $('#imagePlaceholder1').attr('src', imgSrc);
-    document.getElementById('editImage').disabled = false;
 
-    newUploadImage(imgSrc);
-}
-
-function newUploadImage(imgPath) {
-    var data = JSON.stringify({ 'img_path': imgPath });
-    var csrftoken = getCSRFToken();
-
+    // Make an AJAX call to get_img_path endpoint
     $.ajax({
-        type: 'POST',
-        url: '/api/process-image/',
-        data: data,
-        processData: false,
-        contentType: 'application/json',
-        beforeSend: function(xhr) {
-            if (csrftoken) {
-                xhr.setRequestHeader("X-CSRFToken", csrftoken);
-            }
-        },
+        url: '/api/get-mri-path/',
+        type: 'GET',
+        data: { mri_id: mri_id },  // The query param, e.g. ?mri_id=123
         success: function(response) {
-            // Extract relevant data from the response
-            var maskUrl = response.mask_url;
+            /*
+              response should look like:
+              {
+                "mri_id": "123",
+                "path": "/media/username/images/myImage.png"
+              }
+            */
+            const imgSrc = response.path;
 
-            // Second API call: view_mask
-            $.ajax({
-                type: 'POST',
-                url: '/api/view-mask/',
-                data: JSON.stringify({ 'mask_url': maskUrl }),  // Pass relevant data to the second API
-                contentType: 'application/json',
-                beforeSend: function(xhr) {
-                    if (csrftoken) {
-                        xhr.setRequestHeader("X-CSRFToken", csrftoken);
-                    }
-                },
-                success: function(viewMaskResponse) {
-                    $('#imagePlaceholder2').attr('src', viewMaskResponse.mask_url);
-                    globalMaskClassPaths = viewMaskResponse.mask_class_paths;
-                    mask_path = viewMaskResponse.mask_url;
-                },
-                error: function(xhr, status, error) {
-                    console.error('Failed to call view_mask:', xhr.responseText, status, error);
-                }
-            });
+            // Set the placeholder image once the path is returned
+            $('#imagePlaceholder1').attr('src', imgSrc);
+
+            // Enable the "editImage" button
+            document.getElementById('editImage').disabled = false;
         },
-        error: function() {
-            console.error('Error processing image');
+        error: function(xhr, status, error) {
+            console.error('Failed to get image path:', error, xhr.responseText);
         }
     });
 }
+
+
+// function newUploadImage(imgPath) {
+//     var data = JSON.stringify({ 'img_path': imgPath });
+//     var csrftoken = getCSRFToken();
+//
+//     $.ajax({
+//         type: 'POST',
+//         url: '/api/process-image/',
+//         data: data,
+//         processData: false,
+//         contentType: 'application/json',
+//         beforeSend: function(xhr) {
+//             if (csrftoken) {
+//                 xhr.setRequestHeader("X-CSRFToken", csrftoken);
+//             }
+//         },
+//         success: function(response) {
+//             // Extract relevant data from the response
+//             var maskUrl = response.mask_url;
+//
+//             // Second API call: view_mask
+//             $.ajax({
+//                 type: 'POST',
+//                 url: '/api/view-mask/',
+//                 data: JSON.stringify({ 'mask_url': maskUrl }),  // Pass relevant data to the second API
+//                 contentType: 'application/json',
+//                 beforeSend: function(xhr) {
+//                     if (csrftoken) {
+//                         xhr.setRequestHeader("X-CSRFToken", csrftoken);
+//                     }
+//                 },
+//                 success: function(viewMaskResponse) {
+//                     $('#imagePlaceholder2').attr('src', viewMaskResponse.mask_url);
+//                     globalMaskClassPaths = viewMaskResponse.mask_class_paths;
+//                     mask_path = viewMaskResponse.mask_url;
+//                 },
+//                 error: function(xhr, status, error) {
+//                     console.error('Failed to call view_mask:', xhr.responseText, status, error);
+//                 }
+//             });
+//         },
+//         error: function() {
+//             console.error('Error processing image');
+//         }
+//     });
+// }
 
 
 function mewHandleImageUpload() {

@@ -74,16 +74,16 @@
                         {% for img in images %}
                         <tr>
                             <td>{{ img.id }}</td>
-                            <td>{{ img.imgName }}</td>
-                            {% if img.imgFile %}
+                            <td>{{ img.filename }}</td>
+                            {% if img.path %}
                                 <td>
-                                    <img width="320" height="320" src="{{ img.imgFile.url }}" alt=""> 
+                                    <img width="320" height="320" src="{{ img.path.url }}" alt="">
                                 </td>
                             {% else %}
                                 <td> No Image! </td>
                             {% endif %}
                             <td>{{ img.modified_at }}</td>
-                            <td> <a class="btn btn-success badge" onclick="loadAndProcessThisImg('{{img.imgFile.url}}')"> LOAD </a></td>
+                            <td> <a class="btn btn-success badge" onclick="loadAndProcessThisImg('{{img.id}}')"> LOAD </a></td>
                             <td> <a href="{% url 'del_image' %}" class="btn btn-secondary badge"> DELETE </a></td>
                         </tr>
                         {% endfor %}
@@ -142,7 +142,7 @@
                 <div class = "row">                    
                     <div class="col-md-12 col-xl-12 col-auto">
                         <input type="checkbox" id="selectAllChkBox" class="btn-outline-secondary" onclick="selectAll()" checked="ture">  Select All  </input>
-                        <select id="maskSelection" class="btn btn-outline-secondary" disabled="ture">
+                        <select id="maskSelection" class="btn btn-outline-secondary" disabled="true">
                             <option id="dropdownDefault" value="">-----  Select a mask to start!  -----</option>
                         </select>
                     </div>
@@ -254,8 +254,16 @@
     var canvas1 = this.__canvas = new fabric.Canvas('c1');
     var canvas2 = new fabric.Canvas('c2');
 
+    {#canvas2.setZoom(1);#}
+    {#canvas2.absolutePan({ x: 0, y: 0 });#}
+
     canvas2.interactive = false;
     canvas2.selection = false;
+
+    canvas2.getContext('2d').imageSmoothingEnabled = false;
+    canvas2.getContext('2d').mozImageSmoothingEnabled = false;
+    canvas2.getContext('2d').webkitImageSmoothingEnabled = false;
+    canvas2.getContext('2d').msImageSmoothingEnabled = false
 
     //window.addEventListener('load', resizeCanvas);
     //window.addEventListener('resize', resizeCanvas);
@@ -274,6 +282,20 @@
         'object:resizing': updateControls,
         'object:rotating': updateControls,
     })
+
+    function enableClickCoordinatesLogging(canvas) {
+  // Listen for any mouse down event on this Fabric canvas
+      canvas.on('mouse:down', function(opt) {
+        // Get the pointer in canvas coordinates (accounting for zoom/pan)
+        const pointer = canvas.getPointer(opt.e);
+        // Log the coordinates
+        console.log(`Clicked at x=${pointer.x}, y=${pointer.y}`);
+      });
+    }
+
+// Usage:
+// Just call this once, passing in canvas1.
+enableClickCoordinatesLogging(canvas1);
 
     // window event listener
     window.addEventListener('load', resizeCanvas);
@@ -442,6 +464,7 @@
                     transparentCorners: false,
                     cornerColor: mask.cornerColor,
                     opacity:mask.opacity,
+                    label: item
                 });
                 polygon.scale(mask.Scale);
                 canvas1.add(polygon);
@@ -575,28 +598,60 @@
         loadControls(mask)
         plotOnePolygon(mask)
     }
+    function getTransformedPolygonPoints(obj) {
+      // Returns an array of [x, y] in final (canvas) coordinates
+      return obj.points.map(function(pt) {
+        // localPt is the original local coordinate
+        var localPt = new fabric.Point(pt.x - obj.pathOffset.x, pt.y - obj.pathOffset.y);
+        // Transform by the polygon's transform matrix
+        var finalPt = fabric.util.transformPoint(localPt, obj.calcTransformMatrix());
+        {#finalPt = fabric.util.transformPoint(finalPt, canvas1.viewportTransform);#}
+        return [ finalPt.x, finalPt.y ];
+      });
+    }
+
 
     // save mask parameters
     function saveMask() {
-
-        var maskID = document.getElementById('maskSelection').value;
-        var type = maskID.slice(0,-1)
-        var masks = usersDB[curUserID].images[curImageID][type]
-        for (item in masks) {
-            if (masks[item].id == maskID) {
-                var mask = masks[item]
-                break
+        {#canvas2.setZoom(1);#}
+        {#canvas2.absolutePan({ x: 0, y: 0 });#}
+        var structures = [];
+        canvas1.getObjects().forEach(function(obj) {
+        if (obj.type === 'polygon') {
+              var polygonData = {
+                label: obj.label,
+                points: getTransformedPolygonPoints(obj)
+              };
+              structures.push(polygonData);
+              console.log(obj.label, ':',  obj.pathOffset.x, obj.pathOffset.y, getTransformedPolygonPoints(obj));
             }
-        }
 
-        mask.top = parseInt(document.getElementById("top-control").value,10)
-        mask.left = parseInt(document.getElementById("left-control").value,10)
-        mask.opacity = parseFloat(document.getElementById("opacity-control").value)
-        mask.angle = parseInt(document.getElementById("angle-control").value,10)
-        mask.Scale = parseFloat(document.getElementById("scale-control").value)
-        mask.stroke = document.getElementById("strokecolor").value
-        mask.cornerColor = document.getElementById("cornerColor").value
+        });
+        {#console.log('HW:', getTransformedPlaneDimensions(canvas1));#}
+        var width = canvas1.getWidth();
+        var height = canvas1.getHeight();
 
+
+
+
+        var payload = JSON.stringify({structures: structures, width: width, height: height});
+        $.ajax({
+            url: '/api/upload-mask/',              // Matches your Django URL pattern
+            type: 'POST',
+            data: payload,
+            contentType: 'application/json',       // Telling the server to expect JSON
+            dataType: 'json',                      // We expect JSON back from server
+            headers: {
+                'X-CSRFToken': getCSRFToken()        // Your existing function for CSRF
+            },
+            success: function (response) {
+                console.log("Successful at saving edited mask");
+            },
+            error: function (xhr, status, error) {
+                console.error("AJAX error:", error);
+            }
+
+        });
     }
 
     // function to brutal delete the active obj on canvas1
@@ -646,30 +701,47 @@
         });
     }
 
-    // Function to replicate only objects (excluding background image)
     function replicateObjectsOnly(sourceCanvas, targetCanvas) {
-        // Clear the target canvas first
+        // Clear the target canvas
         targetCanvas.clear();
         targetCanvas.setBackgroundColor('black', targetCanvas.renderAll.bind(targetCanvas));
-        // Add only object items, not the background
+
         sourceCanvas.getObjects().forEach(function(obj) {
-            // Clone each object and then add to target canvas
-            var clone;
+            let structure = obj.label;
+
             obj.clone(function(clonedObj) {
-                clone = clonedObj;
+                clonedObj.label = structure;
+
+                // Make the cloned object non-interactive in canvas2
+                clonedObj.selectable = false;
+                clonedObj.evented = false;
+
+                // If it's a polygon (or any shape you want to re-color),
+                // then parse the fill color to remove alpha
+                if (clonedObj.type === 'polygon' && clonedObj.fill) {
+                    let fillColorObj = new fabric.Color(clonedObj.fill);
+                    let rgbaArray   = fillColorObj.getSource();  // e.g. [64, 64, 64, 0.5]
+
+                    // Check if alpha < 1
+                    if (rgbaArray && rgbaArray[3] < 1) {
+                        rgbaArray[3] = 1;                   // force alpha=1
+                        fillColorObj.setSource(rgbaArray);
+
+                        clonedObj.set({
+                            fill: fillColorObj.toRgba(),     // e.g. "rgba(64, 64, 64, 1)"
+                            stroke: fillColorObj.toRgba(),   // match stroke to fill
+                            opacity: 1                       // ensure overall object opacity is 1
+                        });
+                    }
+                }
+
+                targetCanvas.add(clonedObj);
             });
-
-            // Set the clone as non-interactive
-            clone.selectable = false;
-            clone.evented = false;
-
-            // Add the cloned object to the target canvas
-            targetCanvas.add(clone);
         });
 
-        // Render the target canvas
         targetCanvas.renderAll();
     }
+
 
     replicateObjectsOnly(canvas1, canvas2); // Initial replication to sync any pre-existing objects
     syncCanvases(canvas1, canvas2);
