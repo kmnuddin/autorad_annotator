@@ -1,46 +1,312 @@
-<script type="text/javascript" src="../static/jscript.js"></script>
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+{% extends "base.html" %}
+{% block content %}
+<!-- Optional custom styles for image selection -->
+<style>
+  .img-selectable {
+      position: relative;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: border 0.2s;
+  }
+  .img-selectable.selected {
+      border: 2px solid #0d6efd;
+  }
+  .img-selectable.selected::after {
+      content: "✓";
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      background: rgba(13, 110, 253, 0.8);
+      color: #fff;
+      border-radius: 50%;
+      width: 25px;
+      height: 25px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+  }
+</style>
+
 <section class="section">
-    <div class="container">
-        <div class="row">
-            <div class = "col-md-8">
-                <div class = "card">
-                    <div class = "card-header">
-                        <h2> Upload Image </h2>
-                    </div>
-                    <div class="card-body">
-                        <form id="imageForm" action="" method="POST" enctype="multipart/form-data">
-                            {% csrf_token %}
-                            <input type="file" name="image" accept="image/*" class="form-control" id="imageUpload" onchange="addNewImage()"> 
-                            <div class="mb-3">
-                                <label for="" class="form-label">Name</label>
-                                <input type="text" Required id="imgName" name="imgName" class="form-control">
-                            </div>
-                            <div class="mb-3">
-                                <label for="" class="form-label">type</label>
-                                <input type="text" Required id="imgType" name="imgType" class="form-control">
-                            </div>
-                            <div class="mb-3">
-                                <label for="" class="form-label">Width</label>
-                                <input type="text" Required id="imgWidth" name="imgWidth" class="form-control">
-                            </div>
-                            <div class="mb-3">
-                                <label for="" class="form-label">Height</label>
-                                <input type="text" Required id="imgHeight" name="imgHeight" class="form-control">
-                            </div>
-                            <button type="submit" id="saveBtn" class="btn btn-primary" disabled=true>Save</button>
-                        </form>
-                        
-                        <hr class="my-2">
-                        <div class="border rounded d-flex justify-content-center align-items-center">
-                            <img id="imageBox" class="border rounded">
-                        </div>
-                    </div>
-                </div>
-                
-            </div>
-        </div>
-        <a type="button" class="btn btn-outline-primary" href={% url "home" %} disabled> back </a>
+  <div class="container my-4">
+    <h2 class="mb-4">Select Upload Option</h2>
+    <form id="uploadForm" method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      <!-- Selection Box -->
+      <div class="mb-3">
+        <label for="uploadType" class="form-label">Choose Upload Type</label>
+        <select class="form-select" id="uploadType" name="uploadType">
+          <option value="">-- Select an Option --</option>
+          <option value="img">JPEG/PNG</option>
+          <option value="single_dcm">DCM/IMA</option>
+          <option value="dir_dcm">DICOM/IMA DIR</option>
+        </select>
+      </div>
+
+      <!-- File Input Container: This will be updated based on the selection -->
+      <div class="mb-3" id="fileInputContainer">
+        <!-- The dynamic file input will appear here -->
+      </div>
+    </form>
+
+    <!-- Image Grid Section: This area displays image previews for user selection -->
+    <div class="my-4">
+      <h2 class="mb-3">Select Images to Upload</h2>
+      <!-- Select All Checkbox -->
+      <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" id="selectAllCheckbox">
+        <label class="form-check-label" for="selectAllCheckbox">
+          Select All
+        </label>
+      </div>
+      <div class="row" id="imageGrid">
+        <!-- The grid images will be inserted here by JavaScript -->
+      </div>
+      <button id="uploadSelected" class="btn btn-success">Upload Selected Images</button>
     </div>
+  </div>
 </section>
+
+<script>
+    // Global images array that holds objects representing each image file.
+    // Each object will include: id, src, selected, and file (the File object).
+    var images = [];
+
+    // Helper function to retrieve CSRF token (needed for Django AJAX calls)
+    function getCookie(name) {
+      var cookieValue = null;
+      if (document.cookie && document.cookie !== '') {
+          var cookies = document.cookie.split(';');
+          for (var i = 0; i < cookies.length; i++) {
+              var cookie = cookies[i].trim();
+              if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                  cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                  break;
+              }
+          }
+      }
+      return cookieValue;
+    }
+
+    // Render the images in a grid.
+    function renderGrid() {
+        var grid = document.getElementById('imageGrid');
+        grid.innerHTML = ''; // Clear previous content
+
+        images.forEach(function(img, index) {
+            // Create a Bootstrap column for each image
+            var col = document.createElement('div');
+            col.className = 'col-6 col-md-3 mb-3';
+            col.innerHTML = `
+                <div class="img-selectable ${img.selected ? 'selected' : ''}" data-index="${index}">
+                    <img src="${img.src}" alt="Image ${img.id}" class="img-fluid">
+                </div>
+            `;
+            grid.appendChild(col);
+        });
+
+        // Add click listeners to each image container to toggle selection.
+        var imgContainers = document.querySelectorAll('.img-selectable');
+        imgContainers.forEach(function(div) {
+            div.addEventListener('click', function() {
+                var index = this.getAttribute('data-index');
+                images[index].selected = !images[index].selected;
+                this.classList.toggle('selected', images[index].selected);
+            });
+        });
+    }
+
+    // This function is called when files are selected.
+    // It constructs a FormData object with the selected files and sends them via AJAX.
+    function uploadFiles(inputId) {
+       var fileInput = document.getElementById(inputId);
+       var files = fileInput.files;
+       if (files.length === 0) {
+          return;
+       }
+
+       var formData = new FormData();
+       // Append each file to the FormData object using the inputId as the key.
+       for (var i = 0; i < files.length; i++) {
+           formData.append(inputId, files[i]);
+       }
+
+       // Create an array of the File objects so we can later attach them to the images array.
+       var filesArray = Array.from(files);
+
+       fetch('/api/process-mri-for-view/', {
+           method: 'POST',
+           headers: {
+               'X-CSRFToken': getCookie('csrftoken')
+           },
+           body: formData
+       })
+       .then(response => response.json())
+       .then(data => {
+           console.log('API response:', data);
+           // Assume the API returns an array of file URLs under "files".
+           // Combine these URLs with the original File objects.
+           images = data.files.map(function(filePath, index) {
+               return { id: index, src: filePath, selected: false, file: filesArray[index] };
+           });
+           renderGrid();
+       })
+       .catch(error => {
+           console.error('Error uploading files:', error);
+       });
+    }
+
+    // Listen for changes on the "Select All" checkbox.
+    document.getElementById('selectAllCheckbox').addEventListener('change', function() {
+        var isChecked = this.checked;
+        // Update all images to have the same selected state.
+        images.forEach(function(img) {
+          img.selected = isChecked;
+        });
+        // Re-render the grid to show the updated selection.
+        renderGrid();
+    });
+
+    // Listen for changes on the selection box and update the file input accordingly.
+    document.getElementById('uploadType').addEventListener('change', function() {
+      var selected = this.value;
+      var container = document.getElementById('fileInputContainer');
+      // Clear any existing input fields.
+      container.innerHTML = '';
+
+      // Depending on the selection, add the proper file input:
+      if (selected === 'img') {
+        // Multiple JPEG/PNG images
+        container.innerHTML = `
+          <label for="imageInput" class="form-label">Select Image(s) (JPEG/PNG)</label>
+          <input type="file" class="form-control" id="imageInput" name="imageInput" accept=".jpg,.jpeg,.png" multiple>
+        `;
+        // Attach a change event so that files are uploaded immediately.
+        document.getElementById('imageInput').addEventListener('change', function() {
+            uploadFiles('imageInput');
+        });
+      } else if (selected === 'single_dcm') {
+        // Multiple DICOM files (DCM/IMA)
+        container.innerHTML = `
+          <label for="dicomInput" class="form-label">Select DICOM File(s) (DCM/IMA)</label>
+          <input type="file" class="form-control" id="dicomInput" name="dicomInput" accept=".dcm,.ima" multiple>
+        `;
+        document.getElementById('dicomInput').addEventListener('change', function() {
+            uploadFiles('dicomInput');
+        });
+      } else if (selected === 'dir_dcm') {
+        // Single directory containing DICOM files.
+        // Note: The attributes "webkitdirectory" and "directory" allow a directory selection.
+        container.innerHTML = `
+          <label for="dicomDirInput" class="form-label">Select DICOM Directory (DCM/IMA Files)</label>
+          <input type="file" class="form-control" id="dicomDirInput" name="dicomDirInput" accept=".dcm,.ima" webkitdirectory directory>
+        `;
+        document.getElementById('dicomDirInput').addEventListener('change', function() {
+            uploadFiles('dicomDirInput');
+        });
+      }
+    });
+
+    document.getElementById('uploadSelected').addEventListener('click', function() {
+        // Gather selected images
+        var selectedImages = images.filter(function(img) {
+            return img.selected;
+        });
+        console.log('Images selected for further processing:', selectedImages);
+
+        // Create a FormData object
+        var formData = new FormData();
+
+        // Append each selected image's URL (img.src) to the FormData using the key "selected_files"
+        selectedImages.forEach(function(img) {
+            formData.append('selected_files', img.src);
+        });
+
+        // Determine the upload type from the dropdown
+        var uploadType = document.getElementById('uploadType').value;
+        var imgType;
+
+        // Determine imgType based on upload type and file extension of the first image (if available)
+        if (uploadType === 'img') {
+            // For images, try to get the extension from file.name or fallback from src.
+            var fileName;
+            if (selectedImages.length > 0) {
+                if (selectedImages[0].file && selectedImages[0].file.name) {
+                    fileName = selectedImages[0].file.name;
+                } else {
+                    fileName = selectedImages[0].src.split('/').pop();
+                }
+                var ext = fileName.split('.').pop().toLowerCase();
+                if (ext === 'png') {
+                    imgType = 'image/png';
+                } else if (ext === 'jpg' || ext === 'jpeg') {
+                    imgType = 'image/jpeg';
+                } else {
+                    imgType = 'image/' + ext; // fallback in case of an unusual extension
+                }
+            } else {
+                imgType = 'image/png'; // default fallback
+            }
+        } else if (uploadType === 'single_dcm') {
+            // For a single DICOM/IMA file: if extension is ima then type is "ima", otherwise "dicom"
+            var fileName;
+            if (selectedImages.length > 0) {
+                if (selectedImages[0].file && selectedImages[0].file.name) {
+                    fileName = selectedImages[0].file.name;
+                } else {
+                    fileName = selectedImages[0].src.split('/').pop();
+                }
+                var ext = fileName.split('.').pop().toLowerCase();
+                if (ext === 'ima') {
+                    imgType = 'ima';
+                } else {
+                    imgType = 'dicom';
+                }
+            } else {
+                imgType = 'dicom';
+            }
+        } else if (uploadType === 'dir_dcm') {
+            // For a directory of DICOM files, always set type to dicom.
+            imgType = 'dicom';
+        } else {
+            // Fallback in case nothing is selected.
+            imgType = 'image/png';
+        }
+
+        // Append the imgType to the FormData
+        formData.append('imgType', imgType);
+
+        console.log("Sending FormData with imgType: " + imgType);
+        // Optionally iterate over formData entries for debugging:
+        // for (var pair of formData.entries()) {
+        //     console.log(pair[0]+ ': ' + pair[1]);
+        // }
+
+        // Make the AJAX call to the save_image API endpoint
+        fetch('/api/save-image/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: formData
+        })
+        .then(function(response) {
+            if (response.redirected) {
+                window.location.href = response.url;
+            }
+            return response.json();
+        })
+        .then(function(data) {
+            console.log('Save image API response:', data);
+            // After successful saving, redirect to home.
+            window.location.href = '/';
+        })
+        .catch(function(error) {
+            console.error('Error saving images:', error);
+        });
+    });
+
+</script>
+
+{% endblock %}

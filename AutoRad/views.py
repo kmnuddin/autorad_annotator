@@ -11,11 +11,14 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.http import JsonResponse
 import cv2
+import shutil
+from PIL import Image
 import torch
 import pickle
 from .utils import model, device
 import matplotlib.pyplot as plt
 from django.conf import settings
+import io
 import os
 import logging
 import json
@@ -26,7 +29,7 @@ from django.http import HttpResponse
 
 # import customized class models
 from .models import patientClass, reportClass, MRI, UNetMask, UNetMaskStructure
-from .utils import one_hot_encode_masks
+from .utils import one_hot_encode_masks, dicom_to_png
 
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
@@ -62,7 +65,8 @@ def home(request):
     return render(request, 'home.html', context)
     # return render(request, 'home.html')
 
-
+def saveImg(request):
+    return render(request, 'saveImg.html')
 ## This view is not in use....
 # def upload_image(request):
 #     context = {}
@@ -343,48 +347,125 @@ def process_image(request):
 
     return Response({'error': 'Invalid request'}, status=400)
 
+@api_view(['POST'])
+def process_mri_for_view(request):
+    temp_save_dir = os.path.join(settings.MEDIA_ROOT, str(request.user), 'temp')
+    os.makedirs(temp_save_dir, exist_ok=True)
 
-@api_view(['POST', 'GET'])
+    saved_files = []
+
+    # Process JPEG/PNG images (saved directly)
+    if 'imageInput' in request.FILES:
+        image_files = request.FILES.getlist('imageInput')
+        for file in image_files:
+            file_path = os.path.join(temp_save_dir, file.name)
+            with open(file_path, 'wb+') as destination:
+                for chunk in file.chunks():
+                    destination.write(chunk)
+            file_path = os.path.join(settings.MEDIA_URL, str(request.user), 'temp', file.name)
+            saved_files.append(file_path)
+
+    # Process DICOM/IMA files (single or multiple) uploaded via 'dicomInput'
+    if 'dicomInput' in request.FILES:
+        dicom_files = request.FILES.getlist('dicomInput')
+        for file in dicom_files:
+            base_name = os.path.splitext(file.name)[0]
+            output_file_name = base_name + '.png'
+            output_path = os.path.join(temp_save_dir, output_file_name)
+            # Convert the DICOM file to a PNG.
+            dicom_to_png(file, output_path)
+            output_path = os.path.join(settings.MEDIA_URL, str(request.user), 'temp', output_file_name)
+            saved_files.append(output_path)
+
+    # Process directory of DICOM/IMA files uploaded via 'dicomDirInput'
+    if 'dicomDirInput' in request.FILES:
+        dicom_dir_files = request.FILES.getlist('dicomDirInput')
+        for file in dicom_dir_files:
+            base_name = os.path.splitext(file.name)[0]
+            output_file_name = base_name + '.png'
+            output_path = os.path.join(temp_save_dir, output_file_name)
+            dicom_to_png(file, output_path)
+            output_path = os.path.join(settings.MEDIA_URL, str(request.user), 'temp', output_file_name)
+            saved_files.append(output_path)
+
+    return Response({
+        "message": "Files processed and saved successfully.",
+        "files": saved_files,
+    })
+
+
+@api_view(['POST'])
 def save_image(request):
     if request.method == 'POST':
-        # 1) Create an MRI instance
-        mriDB = MRI()
-        mriDB.filename = request.POST.get('imgName')
-        mriDB.filetype = request.POST.get('imgType')
-        mriDB.width = request.POST.get('imgWidth')
-        mriDB.height = request.POST.get('imgHeight')
-        mriDB.user = request.user
+        user_str = str(request.user)
+        # Build the permanent directory: MEDIA_ROOT/<username>/images
+        save_dir_img = os.path.join(settings.MEDIA_ROOT, user_str, 'images')
+        if not os.path.exists(save_dir_img):
+            os.makedirs(save_dir_img)
 
-        # 2) Ensure a file was actually uploaded
-        if 'image' in request.FILES and request.FILES['image']:
-            file_obj = request.FILES['image']
+        # Get the list of processed image URLs sent from the client.
+        # These should be strings like "/media/<username>/images/temp/filename.png"
+        selected_files = request.POST.getlist('selected_files')
+        if not selected_files:
+            return Response({"error": "No selected files provided."}, status=400)
 
-            # 3) Build path: /MEDIA_ROOT/<username>/images/<filename>
-            save_dir_img = os.path.join(settings.MEDIA_ROOT, str(mriDB.user), 'images')
-            if not os.path.exists(save_dir_img):
-                os.makedirs(save_dir_img)
+        for file_url in selected_files:
+            # Remove the MEDIA_URL prefix (e.g. "/media/") to get the relative path.
+            if file_url.startswith(settings.MEDIA_URL):
+                relative_temp_path = file_url[len(settings.MEDIA_URL):]
+            else:
+                relative_temp_path = file_url
 
-            # 4) Save to that custom directory
-            #    - file_obj.name is the original filename
-            file_path = os.path.join(save_dir_img, file_obj.name)
-            with open(file_path, 'wb+') as destination:
-                for chunk in file_obj.chunks():
-                    destination.write(chunk)
+            # Build the absolute path to the temporary file.
+            temp_file_path = os.path.join(settings.MEDIA_ROOT, relative_temp_path)
+            if not os.path.exists(temp_file_path):
+                # Skip files that don't exist.
+                continue
 
-            # 5) Now store the relative path (e.g. "<username>/images/filename.jpg") in mriDB.path
-            #    You can store the *relative* path so your model knows how to locate it
-            relative_path = os.path.join(str(mriDB.user), 'images', file_obj.name)
-            mriDB.path.name = relative_path  # .name if `path` is an ImageField or FileField
-            # Alternatively, mriDB.path = relative_path if it's just a CharField
+            # Destination filename remains the same (assumed to be PNG)
+            new_filename = os.path.basename(temp_file_path)
+            dest_file_path = os.path.join(save_dir_img, new_filename)
 
-        # 6) Finally, save the model
-        mriDB.save()
+            try:
+                # Open the image from the temporary file
+                im = Image.open(temp_file_path)
+                # Check if size is not (320,320)
+                if im.size != (320, 320):
+                    im = im.resize((320, 320), Image.ANTIALIAS)
+                # Optionally ensure the image is in grayscale
+                im = im.convert('L')
+                # Save the processed image as PNG to the destination file
+                im.save(dest_file_path, format='PNG')
+            except Exception as e:
+                # Optionally log error and skip this file
+                print(f"Error processing file {temp_file_path}: {e}")
+                continue
 
-        messages.success(request, "Image uploaded successfully!")
+            # Build relative permanent path (e.g., "<username>/images/filename.png")
+            relative_permanent_path = os.path.join(user_str, 'images', new_filename)
+
+            # Create a new MRI instance.
+            mriDB = MRI()
+            mriDB.filename = new_filename
+            mriDB.filetype = request.POST.get('imgType', 'image/png')
+            mriDB.width = 320
+            mriDB.height = 320
+            mriDB.user = request.user
+            mriDB.path.name = relative_permanent_path  # Assuming MRI.path is a FileField/ImageField
+            mriDB.save()
+
+            print('Saved:', new_filename)
+
+        # Delete all files in the temporary folder: MEDIA_ROOT/<username>/images/temp
+        temp_folder = os.path.join(settings.MEDIA_ROOT, user_str, 'images', 'temp')
+        if os.path.exists(temp_folder):
+            shutil.rmtree(temp_folder)
+            print("Deleted temp folder")
+
+        # After processing, redirect to home
         return redirect('/')
 
-    return render(request, 'saveImg.html')
-
+    return Response({"error": "Invalid request method."}, status=405)
 
 @api_view(['GET'])
 def get_mri_path(request):

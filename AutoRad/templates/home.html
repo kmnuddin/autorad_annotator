@@ -50,7 +50,7 @@
         <hr class="my-2">
             <div class="vertical-center" id = "function_bar">
                 <tr>
-                    <a id="uploadImg2DB" class="btn btn-primary btn-lg" href={% url 'save_image' %}>Upload an Image</a>
+                    <a id="uploadImg2DB" class="btn btn-primary btn-lg" href={% url 'saveImg' %}>Upload an Image</a>
                     <a id="uploadImg2DB" class="btn btn-primary btn-lg" onclick="showImageList()">Show all Images</a>
                     <a id="uploadImg2DB" class="btn btn-secondary btn-lg" onclick="hideImageList()">Hide all Images</a>
                 </tr>
@@ -283,19 +283,6 @@
         'object:rotating': updateControls,
     })
 
-    function enableClickCoordinatesLogging(canvas) {
-  // Listen for any mouse down event on this Fabric canvas
-      canvas.on('mouse:down', function(opt) {
-        // Get the pointer in canvas coordinates (accounting for zoom/pan)
-        const pointer = canvas.getPointer(opt.e);
-        // Log the coordinates
-        console.log(`Clicked at x=${pointer.x}, y=${pointer.y}`);
-      });
-    }
-
-// Usage:
-// Just call this once, passing in canvas1.
-enableClickCoordinatesLogging(canvas1);
 
     // window event listener
     window.addEventListener('load', resizeCanvas);
@@ -464,6 +451,8 @@ enableClickCoordinatesLogging(canvas1);
                     transparentCorners: false,
                     cornerColor: mask.cornerColor,
                     opacity:mask.opacity,
+                    strokeLineJoin: 'round',
+                    strokeLineCap: 'round',
                     label: item
                 });
                 polygon.scale(mask.Scale);
@@ -513,6 +502,7 @@ enableClickCoordinatesLogging(canvas1);
         return new fabric.Point(object.width + stroke.x, object.height + stroke.y);
     }
 
+
     // where do we use this function
     function actionHandler(eventData, transform, x, y) {
         var polygon = transform.target,
@@ -527,6 +517,9 @@ enableClickCoordinatesLogging(canvas1);
         polygon.points[currentControl.pointIndex] = finalPointPosition;
         return true;
     }
+
+
+
 
     // define a function that can keep the polygon in the same position when we change its
     // width/height/top/left.
@@ -549,33 +542,89 @@ enableClickCoordinatesLogging(canvas1);
     }
 
     // allow edit the each pt in a polygon
-    function Edit() {
-        canvas1.forEachObject(function (obj) {
-            if (obj.type === 'polygon') { // Check if it's a polygon
-                obj.edit = !obj.edit; // Toggle edit mode
-                if (obj.edit) {
-                    var lastControl = obj.points.length - 1;
-                    obj.cornerStyle = 'circle';
-                    obj.cornerColor = '#0000ff';
-                    obj.controls = obj.points.reduce(function (acc, point, index) {
-                        acc['p' + index] = new fabric.Control({
-                            positionHandler: polygonPositionHandler,
-                            actionHandler: anchorWrapper(index > 0 ? index - 1 : lastControl, actionHandler),
-                            actionName: 'modifyPolygon',
-                            pointIndex: index
-                        });
-                        return acc;
-                    }, {});
-                } else {
-                    obj.cornerColor = '#0000ff';
-                    obj.cornerStyle = 'rect';
-                    obj.controls = fabric.Object.prototype.controls;
-                }
-                obj.hasBorders = !obj.edit;
-            }
-        });
-        canvas1.requestRenderAll();
+    {#function Edit() {#}
+    {#    canvas1.forEachObject(function (obj) {#}
+    {#        if (obj.type === 'polygon') { // Check if it's a polygon#}
+    {#            obj.edit = !obj.edit; // Toggle edit mode#}
+    {#            if (obj.edit) {#}
+    {#                var lastControl = obj.points.length - 1;#}
+    {#                obj.cornerStyle = 'circle';#}
+    {#                obj.cornerColor = '#0000ff';#}
+    {#                obj.controls = obj.points.reduce(function (acc, point, index) {#}
+    {#                    acc['p' + index] = new fabric.Control({#}
+    {#                        positionHandler: polygonPositionHandler,#}
+    {#                        actionHandler: anchorWrapper(index > 0 ? index - 1 : lastControl, actionHandler),#}
+    {#                        actionName: 'modifyPolygon',#}
+    {#                        pointIndex: index#}
+    {#                    });#}
+    {#                    return acc;#}
+    {#                }, {});#}
+    {#            } else {#}
+    {#                obj.cornerColor = '#0000ff';#}
+    {#                obj.cornerStyle = 'rect';#}
+    {#                obj.controls = fabric.Object.prototype.controls;#}
+    {#            }#}
+    {#            obj.hasBorders = !obj.edit;#}
+    {#        }#}
+    {#    });#}
+    {#    canvas1.requestRenderAll();#}
+    {#}#}
+    function getSubsetOfIndices(totalPoints, maxHandles) {
+          // e.g. if totalPoints=50 and maxHandles=10,
+          // then M=10, step=50/10=5, so we pick 0,5,10,15,...,45
+          let indices = [];
+          let L = totalPoints;
+          let M = Math.min(L, maxHandles);
+
+          if (M === 0) return indices; // edge case if L=0
+
+          let step = L / M;
+          for (let i = 0; i < M; i++) {
+            let idx = Math.floor(i * step);   // or Math.round(i*step)
+            indices.push(idx);
+          }
+          return indices;
     }
+
+    function Edit() {
+          canvas1.forEachObject(function (obj) {
+            if (obj.type === 'polygon') {
+              obj.edit = !obj.edit;
+              if (obj.edit) {
+                var lastControl = obj.points.length - 1;
+                obj.cornerStyle = 'circle';
+                obj.cornerColor = '#0000ff';
+
+                // 1) Choose which points get handles:
+                const handleIndices = getSubsetOfIndices(obj.points.length, 25);
+                // e.g., "at most 10 handles"
+
+                // 2) Build controls only for those indices
+                obj.controls = {};
+                for (let j = 0; j < handleIndices.length; j++) {
+                  const index = handleIndices[j];
+                  obj.controls['p' + index] = new fabric.Control({
+                    positionHandler: polygonPositionHandler,
+                    actionHandler: anchorWrapper(
+                      index > 0 ? index - 1 : lastControl,
+                      actionHandler
+                    ),
+                    actionName: 'modifyPolygon',
+                    pointIndex: index
+                  });
+                }
+              } else {
+                // reset
+                obj.cornerColor = '#0000ff';
+                obj.cornerStyle = 'rect';
+                obj.controls = fabric.Object.prototype.controls;
+              }
+              obj.hasBorders = !obj.edit;
+            }
+          });
+          canvas1.requestRenderAll();
+    }
+
 
     //remove all masks on the canvas1
     function removeAllMask() {
@@ -623,7 +672,7 @@ enableClickCoordinatesLogging(canvas1);
                 points: getTransformedPolygonPoints(obj)
               };
               structures.push(polygonData);
-              console.log(obj.label, ':',  obj.pathOffset.x, obj.pathOffset.y, getTransformedPolygonPoints(obj));
+              {#console.log(obj.label, ':',  obj.pathOffset.x, obj.pathOffset.y, getTransformedPolygonPoints(obj));#}
             }
 
         });
