@@ -84,7 +84,7 @@
                             {% endif %}
                             <td>{{ img.modified_at }}</td>
                             <td> <a class="btn btn-success badge" onclick="loadAndProcessThisImg('{{img.id}}')"> LOAD </a></td>
-                            <td> <a href="{% url 'del_image' %}" class="btn btn-secondary badge"> DELETE </a></td>
+                            <td> <a class="btn btn-secondary badge" href="{% url 'delete' img.id %}"> DELETE </a></td>
                         </tr>
                         {% endfor %}
                     </tbody>

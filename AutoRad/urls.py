@@ -19,7 +19,7 @@ from django.conf.urls.static import static
 from django.urls import path, include, reverse_lazy
 from django.contrib.auth.views import LogoutView, LoginView
 
-from AutoRad.views import home, saveImg, process_image, view_mask, get_control_points, SignUpView, save_image, del_image, upload_mask, get_mri_path, process_mri_for_view
+from AutoRad.views import home, saveImg, process_image, view_mask, get_control_points, SignUpView, save_image, delete, upload_mask, get_mri_path, process_mri_for_view
 
 
 
@@ -45,7 +45,7 @@ urlpatterns = [
     path('api/get-control-points/', get_control_points, name='get_control_points'),
     path('api/upload-mask/', upload_mask, name='upload_mask'),
     path('api/save-image/', save_image, name='save_image'),
-    path('delImg/',del_image, name='del_image')
+    path('delete/<str:mri_id>',delete, name='delete')
 ]
 
 if settings.DEBUG:

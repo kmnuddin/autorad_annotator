@@ -429,6 +429,8 @@ function loadAndProcessThisImg(mri_id) {
 }
 
 
+
+
 // function newUploadImage(imgPath) {
 //     var data = JSON.stringify({ 'img_path': imgPath });
 //     var csrftoken = getCSRFToken();

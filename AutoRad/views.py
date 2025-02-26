@@ -505,8 +505,16 @@ def get_mri_path(request):
         'path': file_path
     })
 
-
-def del_image(request):
-    if request.method == 'POST':
-        return redirect('/')
-    return render(request, "delImg.html")
+@api_view(['GET'])
+def delete(request, mri_id):
+    if not mri_id:
+        return Response({'error': 'No mri_id'})
+    masks = UNetMask.objects.filter(MRI_id=mri_id)
+    if masks.exists():
+        for mask in masks:
+            structures = UNetMaskStructure.objects.filter(unet_mask=mask)
+            structures.delete()
+        masks.delete()
+    mri = MRI.objects.get(pk=mri_id)
+    mri.delete()
+    return redirect('/')
