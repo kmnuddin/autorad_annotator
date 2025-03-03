@@ -18,21 +18,18 @@ import pickle
 from .utils import model, device
 import matplotlib.pyplot as plt
 from django.conf import settings
-import io
+
 import os
-import logging
-import json
+
 import datetime
-import base64
-from django.contrib import messages
-from django.http import HttpResponse
+
 
 # import customized class models
 from .models import patientClass, reportClass, MRI, UNetMask, UNetMaskStructure
 from .utils import one_hot_encode_masks, dicom_to_png
 
 from django.contrib.auth.decorators import login_required
-from django.views.decorators.csrf import csrf_exempt
+
 
 SELECTED_MRI_ID = None
 
@@ -63,36 +60,12 @@ def home(request):
     images = MRI.objects.all()
     context = {'images': images}
     return render(request, 'home.html', context)
-    # return render(request, 'home.html')
+
 
 def saveImg(request):
     return render(request, 'saveImg.html')
-## This view is not in use....
-# def upload_image(request):
-#     context = {}
-#     print("If you see this message, this function is under using!") ## testing
-#     if request.method == 'POST' and request.FILES['image']:
-#         image = request.FILES['image']
-#         fs = FileSystemStorage()
-#         filename = fs.save(image.name, image)
-#         image_url = fs.url(filename)
-#         context['image_url'] = image_url
-#     return render(request, 'home.html', context)
-
-logger = logging.getLogger(__name__)
 
 
-# @api_view(['POST'])
-# def view_mask(request):
-#     try:
-#         data = json.loads(request.body)
-#         mask_url = data['mask_url']
-#         logger.info('Received mask URL: %s', mask_url)
-#         # Process the mask_url as needed
-#         return JsonResponse({'status': 'success', 'mask_url': mask_url})
-#     except Exception as e:
-#         logger.error('Error processing view_mask: %s', e)
-#         return JsonResponse({'error': 'Error processing request'}, status=400)
 
 @api_view(['POST'])
 def view_mask(request):

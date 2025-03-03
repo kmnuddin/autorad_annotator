@@ -64,10 +64,11 @@
                 <table class="table table-bordered table-striped">
                     <thead>
                         <tr>
-                            <th>Id</th>
-                            <th>ImageName</th>
+                            <th>MRI Id</th>
+                            <th>Filename</th>
                             <th>Image</th>
-                            <th>modified_time</th>
+                            <th>Created at</th>
+                            <th>Modified at</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -82,6 +83,7 @@
                             {% else %}
                                 <td> No Image! </td>
                             {% endif %}
+                            <td>{{ img.created_at }}</td>
                             <td>{{ img.modified_at }}</td>
                             <td> <a class="btn btn-success badge" onclick="loadAndProcessThisImg('{{img.id}}')"> LOAD </a></td>
                             <td> <a class="btn btn-secondary badge" href="{% url 'delete' img.id %}"> DELETE </a></td>
@@ -125,10 +127,10 @@
 {#                                <input type="file" name="image" accept="image/*" class="form-control" id="imageUpload" onchange="handleImageUpload()">#}
 {#                            </div>#}
                             <div>
-                                <button type="button" id="submitImage" class="btn btn-primary" onclick="uploadImage()">1.Submit</button>
-                                <button type="button" id="editImage" class="btn btn-secondary" onclick="addBKGtoCanvas()">2.Process</button>
-                                <button type="button" id="processImage" class="btn btn-secondary" onclick="plotAllMasks()">3.Put Marks</button>
-                                <button type="button" id="addMasks" class="btn btn-secondary" onclick="createOptionsMask()">4.Generated Layers</button>
+                                <button type="button" id="submitImage" class="btn btn-primary" onclick="uploadImage()">Segment</button>
+                                <button type="button" id="editImage" class="btn btn-secondary" onclick="editSegmentation()">Edit Segmentation</button>
+{#                                <button type="button" id="processImage" class="btn btn-secondary" onclick="plotAllMasks()">3.Put Marks</button>#}
+{#                                <button type="button" id="addMasks" class="btn btn-secondary" onclick="createOptionsMask()">4.Generated Layers</button>#}
                                 
                             </div>
                         </form>
@@ -215,18 +217,19 @@
                                 <button type="button" id="delBtn" class="btn btn-outline-secondary" onclick="delMask()">Delete Selected Polygon</button>
                             </div>
                         </div>
-                        <div class="row">
+                       <div class="row">
                             <div class="col-auto col-md-6 col-xl-6">
                                 <div id="canvasContainer1" class="canvas-container">
-                                    <canvas id="c1" style="border:1px solid #ccc;"></canvas>
-                                </div>                                
+                                    <canvas id="c1" width="500" height="500" style="border:1px solid #ccc; width:500px; height:500px;"></canvas>
+                                </div>
                             </div>
                             <div class="col-auto col-md-6 col-xl-6">
                                 <div id="canvasContainer2" class="canvas-container">
-                                    <canvas id="c2" style="border:1px solid #ccc;"></canvas>
+                                    <canvas id="c2" width="500" height="500" style="border:1px solid #ccc; width:500px; height:500px;"></canvas>
                                 </div>
                             </div>
                         </div>
+
                         
                         <!-- Image Manipulation Controller Buttons -->
                         <div class="input-group col-auto col-md-3 col-xl-3 border rounded"  style="display: inline-block; padding: 0 10px; margin-top: .5em; margin-left: 10px; margin-right: -5px;">
@@ -285,57 +288,83 @@
 
 
     // window event listener
-    window.addEventListener('load', resizeCanvas);
-    window.addEventListener('resize', resizeCanvas);
+    {#window.addEventListener('load', resizeCanvas);#}
+    {#window.addEventListener('resize', resizeCanvas);#}
+    window.addEventListener('resize', function(){
+        canvas.renderAll();
+        canvas.calcOffset();
+    });
+
     document.getElementById("top-control").oninput = function() {
-        if (canvas1.getObjects().length == 1) {
-            var obj = canvas1.item(0)
-            obj.set("top",parseInt(this.value, 10)).setCoords()
-            canvas1.requestRenderAll()
-        }
-    }
+        var newTop = parseInt(this.value, 10);
+        canvas1.getObjects().forEach(function(obj) {
+            if (obj.type === 'polygon') {
+                obj.set("top", newTop).setCoords();
+            }
+        });
+        canvas1.requestRenderAll();
+    };
+
     document.getElementById("left-control").oninput = function() {
-        if (canvas1.getObjects().length == 1) {
-            var obj = canvas1.item(0)
-            obj.set("left",parseInt(this.value, 10)).setCoords()
-            canvas1.requestRenderAll()
-        }
-    }
+        var newLeft = parseInt(this.value, 10);
+        canvas1.getObjects().forEach(function(obj) {
+            if (obj.type === 'polygon') {
+                obj.set("left", newLeft).setCoords();
+            }
+        });
+        canvas1.requestRenderAll();
+    };
+
     document.getElementById("opacity-control").oninput = function() {
-        if (canvas1.getObjects().length == 1) {
-            var obj = canvas1.item(0)
-            obj.set("opacity",this.value).setCoords()
-            canvas1.requestRenderAll()
-        }
-    }
+        var newOpacity = this.value;
+        canvas1.getObjects().forEach(function(obj) {
+            if (obj.type === 'polygon') {
+                obj.set("opacity", newOpacity).setCoords();
+            }
+        });
+        canvas1.requestRenderAll();
+    };
+
     document.getElementById("angle-control").oninput = function() {
-        if (canvas1.getObjects().length == 1) {
-            var obj = canvas1.item(0)
-            obj.set("angle",parseInt(this.value, 10)).setCoords()
-            canvas1.requestRenderAll()
-        }
-    }
+        var newAngle = parseInt(this.value, 10);
+        canvas1.getObjects().forEach(function(obj) {
+            if (obj.type === 'polygon') {
+                obj.set("angle", newAngle).setCoords();
+            }
+        });
+        canvas1.requestRenderAll();
+    };
+
     document.getElementById("scale-control").oninput = function() {
-        if (canvas1.getObjects().length == 1) {
-            var obj = canvas1.item(0)
-            obj.scale(this.value).setCoords()
-            canvas1.requestRenderAll()
-        }
-    }
+        var newScale = this.value;
+        canvas1.getObjects().forEach(function(obj) {
+            if (obj.type === 'polygon') {
+                obj.scale(newScale).setCoords();
+            }
+        });
+        canvas1.requestRenderAll();
+    };
+
     document.getElementById("cornerColor").oninput = function() {
-        if (canvas1.getObjects().length == 1) {
-            var obj = canvas1.item(0)
-            obj["cornerColor"]=this.value
-            canvas1.requestRenderAll()
-        }
-    }
+        var newCornerColor = this.value;
+        canvas1.getObjects().forEach(function(obj) {
+            if (obj.type === 'polygon') {
+                obj.set("cornerColor", newCornerColor);
+            }
+        });
+        canvas1.requestRenderAll();
+    };
+
     document.getElementById("strokecolor").oninput = function() {
-        if (canvas1.getObjects().length == 1) {
-            var obj = canvas1.item(0)
-            obj["stroke"]=this.value
-            canvas1.requestRenderAll()
-        }
-    }
+        var newStrokeColor = this.value;
+        canvas1.getObjects().forEach(function(obj) {
+            if (obj.type === 'polygon') {
+                obj.set("stroke", newStrokeColor);
+            }
+        });
+        canvas1.requestRenderAll();
+    };
+
 
 
     // Resize the canvas1 when the document is loaded and when the window is resized.
@@ -369,6 +398,30 @@
         opt.e.stopPropagation();
     });
 
+    function editSegmentation() {
+        // Set the MRI image as the background of canvas1.
+        var mri_path = document.getElementById('imagePlaceholder1').src;
+        fabric.Image.fromURL(mri_path, function(img) {
+            // Set the image as the background of canvas1.
+            canvas1.setBackgroundImage(img, canvas1.renderAll.bind(canvas1), {
+                scaleX: canvas1.width / img.width,
+                scaleY: canvas1.height / img.height
+            });
+            canvas1.renderAll();
+
+            // Call extractMasks() to get mask data via AJAX.
+            extractMasks();
+
+            // Wait a short while (e.g., 500ms) to allow the AJAX call to complete,
+            // then overlay the masks and create options.
+            setTimeout(function() {
+                plotAllMasks();
+                createOptionsMask();
+            }, 500);
+        });
+    }
+
+
     function addBKGtoCanvas() {
         // Set the MRI image as the background of the canvas1
         var mri_path = document.getElementById('imagePlaceholder1').src;
@@ -381,6 +434,7 @@
         });
         canvas1.renderAll();
         extractMasks();
+
     }
 
     // Mask information
