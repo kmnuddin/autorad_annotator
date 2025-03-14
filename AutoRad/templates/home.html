@@ -111,7 +111,7 @@
                     <!-- Image Placeholder 2 -->
                     <div class="col-md-4 mb-3">
                         <div class="border rounded d-flex justify-content-center align-items-center" style="height: 320px; width: auto;">
-                            <img id="imagePlaceholder2" class="border rounded" style="height: 320px;">
+                            <img id="imagePlaceholder2" class="border rounded" src="" style="height: 320px;">
                         </div>
                     </div>
                 </div>
@@ -188,7 +188,14 @@
                                     <span>Scale:</span>
                                     <input type="range" id="scale-control" value="1" min="0.1" max="3" step="0.05">
                                 </label>
-                            </p>                            
+                            </p>
+                            <p>
+                                <label style="padding: 0 5px 0 5px">
+                                    <span>Vertex:</span>
+                                    <input type="range" id="vertex-control" value="1" min="0" max="100" step="0.05">
+                                </label>
+                            </p>
+
                         </div>
                         <div class="input-group" >
                             <p>
@@ -287,13 +294,7 @@
     })
 
 
-    // window event listener
-    {#window.addEventListener('load', resizeCanvas);#}
-    {#window.addEventListener('resize', resizeCanvas);#}
-    window.addEventListener('resize', function(){
-        canvas.renderAll();
-        canvas.calcOffset();
-    });
+
 
     document.getElementById("top-control").oninput = function() {
         var newTop = parseInt(this.value, 10);
@@ -399,6 +400,15 @@
     });
 
     function editSegmentation() {
+
+        // Check if there is a mask image in the placeholder using getAttribute('src')
+        var maskElement = document.getElementById('imagePlaceholder2');
+        var maskSrc = maskElement.getAttribute('src'); // Use getAttribute to get the raw value
+        if (!maskSrc || maskSrc.trim() === "") {
+            alert("No mask image present. Please segment first.");
+            return;
+        }
+
         // Set the MRI image as the background of canvas1.
         var mri_path = document.getElementById('imagePlaceholder1').src;
         fabric.Image.fromURL(mri_path, function(img) {
@@ -482,41 +492,46 @@
      */
     // Polt all masks on canvas1
     function plotAllMasks() {
-
-        removeAllMask()
+        removeAllMask();
         var imgObj = usersDB[curUserID].images[curImageID];
         mask_list = [];
 
-        ["IVD","PE","TS","AAP"].forEach((item) => {
+        ["IVD", "PE", "TS", "AAP"].forEach((item) => {
+            // Check if the structure exists on the image object before processing.
+            if (imgObj[item]) {
 
-            for (let index in imgObj[item]) {
-                var mask = imgObj[item][index]
-                var points = mask.points
-                mask_list.push(mask.id)
+                for (let index in imgObj[item]) {
+                    var mask = imgObj[item][index];
+                    if (!mask){
+                        continue;
+                    }
+                    var points = mask.points;
+                    mask_list.push(mask.id);
 
-                var polygon = new fabric.Polygon(points, {
-                    stroke: mask.stroke,
-                    strokeWidth: 1,
-                    fill: structureColors[item],
-                    top:mask.top,
-                    left:mask.left,
-                    angle:mask.angle,
-                    objectCaching: false,
-                    transparentCorners: false,
-                    cornerColor: mask.cornerColor,
-                    opacity:mask.opacity,
-                    strokeLineJoin: 'round',
-                    strokeLineCap: 'round',
-                    label: item
-                });
-                polygon.scale(mask.Scale);
-                canvas1.add(polygon);
-                {#canvas2.add(polygon);#}
+                    var polygon = new fabric.Polygon(points, {
+                        stroke: mask.stroke,
+                        strokeWidth: 1,
+                        fill: structureColors[item],
+                        top: mask.top,
+                        left: mask.left,
+                        angle: mask.angle,
+                        objectCaching: false,
+                        transparentCorners: false,
+                        cornerColor: mask.cornerColor,
+                        opacity: mask.opacity,
+                        strokeLineJoin: 'round',
+                        strokeLineCap: 'round',
+                        label: item,
+                        id: mask.id
+                    });
+                    polygon.scale(mask.Scale);
+                    canvas1.add(polygon);
+                }
             }
-        })
+        });
         canvas1.renderAll();
-        {#canvas2.renderAll();#}
     }
+
 
     // polt one mask on canvas1
     function plotOnePolygon(mask) {
@@ -529,16 +544,35 @@
             objectCaching: false,
             cornerColor:mask.cornerColor,
             opacity:mask.opacity,
+            label:mask.id.slice(0, -1),
+            id:mask.id
         });
         polygon.scale(mask.Scale);
         canvas1.add(polygon);
         canvas1.renderAll();
     }
 
-    // where do we use this function
+    {#// where do we use this function#}
+    {#function polygonPositionHandler(dim, finalMatrix, fabricObject) {#}
+    {#    var x = (fabricObject.points[this.pointIndex].x - fabricObject.pathOffset.x),#}
+    {#        y = (fabricObject.points[this.pointIndex].y - fabricObject.pathOffset.y);#}
+    {#    return fabric.util.transformPoint(#}
+    {#        { x: x, y: y },#}
+    {#        fabric.util.multiplyTransformMatrices(#}
+    {#            fabricObject.canvas.viewportTransform,#}
+    {#            fabricObject.calcTransformMatrix()#}
+    {#        )#}
+    {#    );#}
+    {#}#}
     function polygonPositionHandler(dim, finalMatrix, fabricObject) {
-        var x = (fabricObject.points[this.pointIndex].x - fabricObject.pathOffset.x),
-            y = (fabricObject.points[this.pointIndex].y - fabricObject.pathOffset.y);
+        // Check if the polygon has a points array and the requested index exists
+        if (!fabricObject.points || fabricObject.points.length <= this.pointIndex) {
+            // Fallback: return a default point; here, we return the polygon's center
+            return { x: fabricObject.left, y: fabricObject.top };
+        }
+        var point = fabricObject.points[this.pointIndex];
+        var x = point.x - fabricObject.pathOffset.x,
+            y = point.y - fabricObject.pathOffset.y;
         return fabric.util.transformPoint(
             { x: x, y: y },
             fabric.util.multiplyTransformMatrices(
@@ -547,6 +581,7 @@
             )
         );
     }
+
 
     function getObjectSizeWithStroke(object) {
         var stroke = new fabric.Point(
@@ -595,34 +630,6 @@
         }
     }
 
-    // allow edit the each pt in a polygon
-    {#function Edit() {#}
-    {#    canvas1.forEachObject(function (obj) {#}
-    {#        if (obj.type === 'polygon') { // Check if it's a polygon#}
-    {#            obj.edit = !obj.edit; // Toggle edit mode#}
-    {#            if (obj.edit) {#}
-    {#                var lastControl = obj.points.length - 1;#}
-    {#                obj.cornerStyle = 'circle';#}
-    {#                obj.cornerColor = '#0000ff';#}
-    {#                obj.controls = obj.points.reduce(function (acc, point, index) {#}
-    {#                    acc['p' + index] = new fabric.Control({#}
-    {#                        positionHandler: polygonPositionHandler,#}
-    {#                        actionHandler: anchorWrapper(index > 0 ? index - 1 : lastControl, actionHandler),#}
-    {#                        actionName: 'modifyPolygon',#}
-    {#                        pointIndex: index#}
-    {#                    });#}
-    {#                    return acc;#}
-    {#                }, {});#}
-    {#            } else {#}
-    {#                obj.cornerColor = '#0000ff';#}
-    {#                obj.cornerStyle = 'rect';#}
-    {#                obj.controls = fabric.Object.prototype.controls;#}
-    {#            }#}
-    {#            obj.hasBorders = !obj.edit;#}
-    {#        }#}
-    {#    });#}
-    {#    canvas1.requestRenderAll();#}
-    {#}#}
     function getSubsetOfIndices(totalPoints, maxHandles) {
           // e.g. if totalPoints=50 and maxHandles=10,
           // then M=10, step=50/10=5, so we pick 0,5,10,15,...,45
@@ -640,44 +647,99 @@
           return indices;
     }
 
-    function Edit() {
-          canvas1.forEachObject(function (obj) {
-            if (obj.type === 'polygon') {
-              obj.edit = !obj.edit;
-              if (obj.edit) {
-                var lastControl = obj.points.length - 1;
-                obj.cornerStyle = 'circle';
-                obj.cornerColor = '#0000ff';
-
-                // 1) Choose which points get handles:
-                const handleIndices = getSubsetOfIndices(obj.points.length, 25);
-                // e.g., "at most 10 handles"
-
-                // 2) Build controls only for those indices
-                obj.controls = {};
-                for (let j = 0; j < handleIndices.length; j++) {
-                  const index = handleIndices[j];
-                  obj.controls['p' + index] = new fabric.Control({
-                    positionHandler: polygonPositionHandler,
-                    actionHandler: anchorWrapper(
-                      index > 0 ? index - 1 : lastControl,
-                      actionHandler
-                    ),
-                    actionName: 'modifyPolygon',
-                    pointIndex: index
-                  });
-                }
-              } else {
-                // reset
-                obj.cornerColor = '#0000ff';
-                obj.cornerStyle = 'rect';
-                obj.controls = fabric.Object.prototype.controls;
-              }
-              obj.hasBorders = !obj.edit;
-            }
-          });
-          canvas1.requestRenderAll();
+    function updateVertexControlRangeForPolygon(polygon) {
+        var vertexControl = document.getElementById("vertex-control");
+        // Use the polygon's stored desiredHandleCount if it exists; otherwise default to the number of points.
+        var desiredHandles = (polygon.desiredHandleCount !== undefined)
+                                ? polygon.desiredHandleCount
+                                : polygon.points.length;
+        // Enforce a minimum of 5.
+        if (desiredHandles < 5) {
+            desiredHandles = 5;
+        }
+        // Optionally, you might choose the slider's maximum as the total number of points,
+        // or fix it to a constant value (e.g. 25) if you want a maximum number of editable handles.
+        // Here we assume the maximum is the total number of points.
+        vertexControl.max = polygon.points.length;
+        vertexControl.value = desiredHandles;
     }
+
+
+    document.getElementById("vertex-control").oninput = function() {
+        var polygon = canvas1.getActiveObject();
+        if (!polygon || polygon.type !== 'polygon') return;
+
+        // The slider now indicates the desired number of editable handles.
+        var desiredHandles = parseInt(this.value, 10);
+
+        // Enforce a minimum of 5.
+        if (desiredHandles < 5) {
+            desiredHandles = 5;
+            this.value = 5;
+        }
+
+        // Store the value on the polygon so that it “remembers” this configuration.
+        polygon.desiredHandleCount = desiredHandles;
+
+        // Recalculate the subset of indices to assign controls.
+        const handleIndices = getSubsetOfIndices(polygon.points.length, desiredHandles);
+        var lastControl = polygon.points.length - 1;
+        // Clear and rebuild the polygon's controls.
+        polygon.controls = {};
+        for (let j = 0; j < handleIndices.length; j++) {
+            const index = handleIndices[j];
+            polygon.controls['p' + index] = new fabric.Control({
+                positionHandler: polygonPositionHandler,
+                actionHandler: anchorWrapper(index > 0 ? index - 1 : lastControl, actionHandler),
+                actionName: 'modifyPolygon',
+                pointIndex: index
+            });
+        }
+
+        polygon.setCoords();
+        canvas1.requestRenderAll();
+    };
+
+
+    function Edit() {
+        canvas1.forEachObject(function (obj) {
+            if (obj.type === 'polygon') {
+                obj.edit = !obj.edit;
+                if (obj.edit) {
+                    // Initialize the slider with this polygon’s desired handle count.
+                    updateVertexControlRangeForPolygon(obj);
+
+                    var lastControl = obj.points.length - 1;
+                    obj.cornerStyle = 'circle';
+                    obj.cornerColor = '#0000ff';
+
+                    // Use the stored desired handle count if available, otherwise use all points.
+                    const desiredHandles = (obj.desiredHandleCount !== undefined) ? obj.desiredHandleCount : obj.points.length;
+                    const handleIndices = getSubsetOfIndices(obj.points.length, desiredHandles);
+
+                    // Build controls only for those indices.
+                    obj.controls = {};
+                    for (let j = 0; j < handleIndices.length; j++) {
+                        const index = handleIndices[j];
+                        obj.controls['p' + index] = new fabric.Control({
+                            positionHandler: polygonPositionHandler,
+                            actionHandler: anchorWrapper(index > 0 ? index - 1 : lastControl, actionHandler),
+                            actionName: 'modifyPolygon',
+                            pointIndex: index
+                        });
+                    }
+                } else {
+                    // Reset when not in edit mode.
+                    obj.cornerColor = '#0000ff';
+                    obj.cornerStyle = 'rect';
+                    obj.controls = fabric.Object.prototype.controls;
+                }
+                obj.hasBorders = !obj.edit;
+            }
+        });
+        canvas1.requestRenderAll();
+    }
+
 
 
     //remove all masks on the canvas1
@@ -757,11 +819,69 @@
         });
     }
 
+    function removeMaskFromCache(userID, imageID, typeStr, maskId) {
+    // Check that the array for that structure exists.
+        if (usersDB[userID] && usersDB[userID].images[imageID] && usersDB[userID].images[imageID][typeStr]) {
+            // Filter out the mask with the matching id.
+            usersDB[userID].images[imageID][typeStr] = usersDB[userID].images[imageID][typeStr].filter(function(mask) {
+                return mask.id !== maskId;
+            });
+        }
+    }
+
     // function to brutal delete the active obj on canvas1
     function delMask() {
         var obj = canvas1.getActiveObject();
-        var result = alert("It will be removed and can't be undo")
-        canvas1.remove(obj)
+        if (!obj) return; // If no object is selected, do nothing.
+        // Remove the object from the canvas.
+        canvas1.remove(obj);
+        canvas1.requestRenderAll();
+
+        {#console.log("Object label:", obj.label);#}
+        {#console.log("mask_list before filter:", mask_list);#}
+
+        // Update the global mask_list by removing the object's id.
+        // (Ensure that each polygon has an 'id' property that corresponds to an entry in mask_list.)
+        mask_list = mask_list.filter(function(item) {
+            return item !== obj.id;
+        });
+
+        {#console.log("mask_list after filter:", mask_list);#}
+
+        console.log('Before: ', usersDB[curUserID].images[curImageID]);
+
+        removeMaskFromCache(curUserID, curImageID, obj.label, obj.id);
+
+        console.log('After: ', usersDB[curUserID].images[curImageID]);
+
+        // Refresh the dropdown list so it no longer shows the deleted mask.
+        createOptionsMask();
+
+        // Show a Bootstrap success alert.
+        showAlert("Mask removed successfully!", "success");
+    }
+
+    // Helper function to display a Bootstrap alert.
+    function showAlert(message, type) {
+        // Create the alert HTML.
+        var alertHtml = `
+            <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        `;
+        // Insert the alert into an element with id "alert-container".
+        var container = document.getElementById("alert-container");
+        if (container) {
+            container.innerHTML = alertHtml;
+            // Optionally remove the alert after 3 seconds.
+            setTimeout(function() {
+                container.innerHTML = "";
+            }, 3000);
+        } else {
+            // Fallback to window alert if container not found.
+            alert(message);
+        }
     }
 
     // use to load the parameters when the mask is first created

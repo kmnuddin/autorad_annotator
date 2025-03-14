@@ -1,5 +1,6 @@
 import numpy as np
 from django.shortcuts import render, redirect
+from django.utils import timezone
 from django.core.files.storage import FileSystemStorage
 from django.contrib.auth.forms import UserCreationForm
 from django.views.generic.edit import CreateView
@@ -177,6 +178,9 @@ def upload_mask(request):
 
         # 5) Fetch the MRI record
         mri = MRI.objects.get(id=mri_id)
+        mri.modified_at = timezone.now()
+        mri.save(update_fields=['modified_at'])
+
 
         # 6) Generate filenames with a timestamp
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -293,11 +297,12 @@ def process_image(request):
             if not os.path.exists(save_dir_mask_npy):
                 os.makedirs(save_dir_mask_npy)
 
-            mask_img_filename = mri_path.split('/')[-1].split('.')[0] + '.png'
+            mask_img_filename = mri_path.split("\\")[-1].split('.')[0] + '.png'
             mask_npy_filename = mask_img_filename.split('.')[0] + '.npy'
 
             mask_img_path = os.path.join(save_dir_mask_img, mask_img_filename)
             mask_npy_path = os.path.join(save_dir_mask_npy, mask_npy_filename)
+
 
             mask_url = os.path.join(str(request.user), 'masks', 'original', mask_img_filename)
 
@@ -429,11 +434,7 @@ def save_image(request):
 
             print('Saved:', new_filename)
 
-        # Delete all files in the temporary folder: MEDIA_ROOT/<username>/images/temp
-        temp_folder = os.path.join(settings.MEDIA_ROOT, user_str, 'images', 'temp')
-        if os.path.exists(temp_folder):
-            shutil.rmtree(temp_folder)
-            print("Deleted temp folder")
+
 
         # After processing, redirect to home
         return redirect('/')

@@ -28,7 +28,6 @@ class user {
 
     addToUsers() {
         this.userID = generateUUID("user")
-        console.log("New user added to database: " + this.userID)
         usersDB[this.userID]=this.userDict
     }
 
@@ -55,7 +54,6 @@ class autoRadImage {
 
     addToUser(userId) {
         this.imageID = generateUUID("image")
-        console.log("New image " + `${this.imageID}` + " added to user: " + userId)
         usersDB[userId].images[this.imageID] = this.imgDict
     }
 
@@ -97,7 +95,6 @@ class imgMask {
     }
 
     addToImage(userId, imageId, typeStr) {
-        console.log("A new "+typeStr+" mask is added under image: " + imageId + " under user: " + userId)
         usersDB[userId].images[imageId][typeStr].push(this.maskDict)
     }
 
@@ -176,7 +173,6 @@ function getImgID(userID, src) {
         for (let imgId in imgs) {
             // console.log(imgId)
             if (imgs[imgId].src == src) {
-                console.log("Image found in DB: " + imgId)
                 return [true,imgId]
             }
         }
@@ -184,7 +180,6 @@ function getImgID(userID, src) {
 
     var tempImg = new autoRadImage(src)
     tempImg.addToUser(userID)
-    console.log("New image added to user: " + userID)
     return [false, tempImg.imageID]
 }
 
@@ -231,20 +226,7 @@ function extractMasks() {
     }    
 }
 
-/**
- * function to save the current DB in json format. Not working. JS file conflict (fabric and require. Or need more work)
- */
-// function saveDBtoJson() {
-//     var jsonString = JSON.stringify(usersDB)
-//     // var blob = new Blob([jsonString],{type:"application/json"})
-//     var fs = require('fs');
-//     fs.writeFile("test.json", jsonString, function(err) {
-//         if (err) {
-//             console.log(err);
-//         }
-//     });
-//     // fileSaver.saveAs(blob, "static/testDB.json")
-// }
+
 
 /**
  * Image upload image function
@@ -367,7 +349,7 @@ function createOptionsMask() {
     
     var index = dropdownList.options.length
     for (let i=index-1;i>0;i--) {
-        dropdownList.remove(i)
+        dropdownList.remove(i);
     }
 
     mask_list.forEach(option => {
@@ -398,14 +380,23 @@ function loadThisImg(imgSrc) {
 }
 
 function loadAndProcessThisImg(mri_id) {
-    // Hide the image list first
+    // Clear the Fabric canvas (and any other canvases if needed)
+    canvas1.clear();
+    // If you have additional canvases (e.g., canvas2), clear them as well:
+    canvas2.clear();
+
+    // Reset image placeholders by clearing their src attributes
+    $('#imagePlaceholder1').attr('src', '');
+    $('#imagePlaceholder2').attr('src', '');
+    // Hide the image list
     hideImageList();
 
-    // Make an AJAX call to get_img_path endpoint
+
+    // Now, call the API to get the MRI path
     $.ajax({
         url: '/api/get-mri-path/',
         type: 'GET',
-        data: { mri_id: mri_id },  // The query param, e.g. ?mri_id=123
+        data: { mri_id: mri_id },  // e.g. ?mri_id=123
         success: function(response) {
             /*
               response should look like:
@@ -431,51 +422,8 @@ function loadAndProcessThisImg(mri_id) {
 
 
 
-// function newUploadImage(imgPath) {
-//     var data = JSON.stringify({ 'img_path': imgPath });
-//     var csrftoken = getCSRFToken();
-//
-//     $.ajax({
-//         type: 'POST',
-//         url: '/api/process-image/',
-//         data: data,
-//         processData: false,
-//         contentType: 'application/json',
-//         beforeSend: function(xhr) {
-//             if (csrftoken) {
-//                 xhr.setRequestHeader("X-CSRFToken", csrftoken);
-//             }
-//         },
-//         success: function(response) {
-//             // Extract relevant data from the response
-//             var maskUrl = response.mask_url;
-//
-//             // Second API call: view_mask
-//             $.ajax({
-//                 type: 'POST',
-//                 url: '/api/view-mask/',
-//                 data: JSON.stringify({ 'mask_url': maskUrl }),  // Pass relevant data to the second API
-//                 contentType: 'application/json',
-//                 beforeSend: function(xhr) {
-//                     if (csrftoken) {
-//                         xhr.setRequestHeader("X-CSRFToken", csrftoken);
-//                     }
-//                 },
-//                 success: function(viewMaskResponse) {
-//                     $('#imagePlaceholder2').attr('src', viewMaskResponse.mask_url);
-//                     globalMaskClassPaths = viewMaskResponse.mask_class_paths;
-//                     mask_path = viewMaskResponse.mask_url;
-//                 },
-//                 error: function(xhr, status, error) {
-//                     console.error('Failed to call view_mask:', xhr.responseText, status, error);
-//                 }
-//             });
-//         },
-//         error: function() {
-//             console.error('Error processing image');
-//         }
-//     });
-// }
+
+
 
 
 function mewHandleImageUpload() {

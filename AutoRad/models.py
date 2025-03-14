@@ -35,6 +35,7 @@ class MRI(models.Model):
     width = models.IntegerField(default=320)
     height = models.IntegerField(default=320)
     created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
 
     user = models.ForeignKey(User, on_delete=models.SET_DEFAULT, default="-1")
 
