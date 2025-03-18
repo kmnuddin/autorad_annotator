@@ -99,6 +99,8 @@
         <!-- Row for Image Placeholders and Severity Assessment Dropdowns -->
         <div class="row" id="imageManipulationCard" hidden=true>
             <!-- Column for Image Placeholders -->
+            <div id="alert-container" style="position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 1050;"></div>
+
             <div class="col-md-12">
                 <div class="row justify-content-center">
                     <!-- Image Placeholder 1 -->
@@ -366,6 +368,12 @@
         canvas1.requestRenderAll();
     };
 
+    document.addEventListener('keydown', function(event) {
+      // Check if the pressed key is "Delete"
+      if (event.key === 'Delete') {
+        delMask();
+      }
+    });
 
 
     // Resize the canvas1 when the document is loaded and when the window is resized.
@@ -810,7 +818,7 @@
                 'X-CSRFToken': getCSRFToken()        // Your existing function for CSRF
             },
             success: function (response) {
-                console.log("Successful at saving edited mask");
+                showAlert("Edited Mask Saved.", "primary");
             },
             error: function (xhr, status, error) {
                 console.error("AJAX error:", error);
@@ -837,8 +845,6 @@
         canvas1.remove(obj);
         canvas1.requestRenderAll();
 
-        {#console.log("Object label:", obj.label);#}
-        {#console.log("mask_list before filter:", mask_list);#}
 
         // Update the global mask_list by removing the object's id.
         // (Ensure that each polygon has an 'id' property that corresponds to an entry in mask_list.)
@@ -846,43 +852,43 @@
             return item !== obj.id;
         });
 
-        {#console.log("mask_list after filter:", mask_list);#}
-
-        console.log('Before: ', usersDB[curUserID].images[curImageID]);
-
         removeMaskFromCache(curUserID, curImageID, obj.label, obj.id);
 
-        console.log('After: ', usersDB[curUserID].images[curImageID]);
 
         // Refresh the dropdown list so it no longer shows the deleted mask.
         createOptionsMask();
 
         // Show a Bootstrap success alert.
-        showAlert("Mask removed successfully!", "success");
+        showAlert("Mask removed successfully!", "warning");
     }
 
     // Helper function to display a Bootstrap alert.
     function showAlert(message, type) {
-        // Create the alert HTML.
+        // Create the alert HTML with semi-transparency, width set to 25vw, and centered text.
         var alertHtml = `
-            <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            <div class="alert alert-${type} alert-dismissible fade show" role="alert"
+                 style="opacity: 0.8; width: 25vw; margin: 0 auto; text-align: center;">
                 ${message}
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
         `;
-        // Insert the alert into an element with id "alert-container".
         var container = document.getElementById("alert-container");
         if (container) {
             container.innerHTML = alertHtml;
-            // Optionally remove the alert after 3 seconds.
+            // After 2 seconds, automatically close the alert.
             setTimeout(function() {
-                container.innerHTML = "";
-            }, 3000);
+                var alertEl = container.querySelector(".alert");
+                if (alertEl) {
+                    var bsAlert = new bootstrap.Alert(alertEl);
+                    bsAlert.close();
+                }
+            }, 2000);
         } else {
-            // Fallback to window alert if container not found.
             alert(message);
         }
     }
+
+
 
     // use to load the parameters when the mask is first created
     function loadControls(mask) {
