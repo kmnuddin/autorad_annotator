@@ -28,45 +28,93 @@
   }
 </style>
 
-<section class="section">
-  <div class="container my-4">
-    <h2 class="mb-4">Select Upload Option</h2>
-    <form id="uploadForm" method="post" enctype="multipart/form-data">
-      {% csrf_token %}
-      <!-- Selection Box -->
-      <div class="mb-3">
-        <label for="uploadType" class="form-label">Choose Upload Type</label>
-        <select class="form-select" id="uploadType" name="uploadType">
-          <option value="">-- Select an Option --</option>
-          <option value="img">JPEG/PNG</option>
-          <option value="single_dcm">DCM/IMA</option>
-          <option value="dir_dcm">DICOM/IMA DIR</option>
-        </select>
-      </div>
+<div class="container my-4">
+  <div class="row">
+    <!-- Upload Section Column -->
+    <div class="col-md-6">
+      <section class="section">
+        <h2 class="mb-4">Select Upload Option</h2>
+        <form id="uploadForm" method="post" enctype="multipart/form-data">
+          {% csrf_token %}
+          <!-- Selection Box -->
+          <div class="mb-3">
+            <label for="uploadType" class="form-label">Choose Upload Type</label>
+            <select class="form-select" id="uploadType" name="uploadType">
+              <option value="">-- Select an Option --</option>
+              <option value="img">JPEG/PNG</option>
+              <option value="single_dcm">DCM/IMA</option>
+              <option value="dir_dcm">DICOM/IMA DIR</option>
+            </select>
+          </div>
 
-      <!-- File Input Container: This will be updated based on the selection -->
-      <div class="mb-3" id="fileInputContainer">
-        <!-- The dynamic file input will appear here -->
-      </div>
-    </form>
+          <!-- File Input Container: This will be updated based on the selection -->
+          <div class="mb-3" id="fileInputContainer">
+            <!-- The dynamic file input will appear here -->
+          </div>
+        </form>
 
-    <!-- Image Grid Section: This area displays image previews for user selection -->
-    <div class="my-4">
-      <h2 class="mb-3">Select Images to Upload</h2>
-      <!-- Select All Checkbox -->
-      <div class="form-check mb-2">
-        <input class="form-check-input" type="checkbox" id="selectAllCheckbox">
-        <label class="form-check-label" for="selectAllCheckbox">
-          Select All
-        </label>
-      </div>
-      <div class="row" id="imageGrid">
-        <!-- The grid images will be inserted here by JavaScript -->
-      </div>
-      <button id="uploadSelected" class="btn btn-success">Upload Selected Images</button>
+        <!-- Image Grid Section: This area displays image previews for user selection -->
+        <div class="my-4">
+          <h2 class="mb-3">Select Images to Upload</h2>
+          <!-- Select All Checkbox -->
+          <div class="form-check mb-2">
+            <input class="form-check-input" type="checkbox" id="selectAllCheckbox">
+            <label class="form-check-label" for="selectAllCheckbox">
+              Select All
+            </label>
+          </div>
+          <div class="row" id="imageGrid">
+            <!-- The grid images will be inserted here by JavaScript -->
+          </div>
+          <button id="uploadSelected" class="btn btn-success">Upload Selected Images</button>
+        </div>
+      </section>
+    </div>
+
+    <!-- Patient/MRI Information Column (Initially Hidden) -->
+    <div class="col-md-6">
+      <section class="section" id="infoSection" style="display:none;">
+        <h2 class="mb-4">Patient and MRI Information</h2>
+        <div class="card mb-3">
+          <div class="card-header">
+            <h4>Patient Information</h4>
+          </div>
+          <div class="card-body">
+            <p><strong>Patient ID:</strong> <span id="patientID"></span></p>
+            <p><strong>Age:</strong> <span id="patientAge"></span></p>
+            <p><strong>Weight:</strong> <span id="patientWeight"></span></p>
+            <p><strong>Height:</strong> <span id="patientHeight"></span></p>
+            <p><strong>Sex:</strong> <span id="patientSex"></span></p>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h4>MRI Information</h4>
+          </div>
+          <div class="card-body">
+            <p><strong>Filename:</strong> <span id="mriFilename"></span></p>
+            <p><strong>File Type:</strong> <span id="mriFiletype"></span></p>
+            <p><strong>Modality:</strong> <span id="mriModality"></span></p>
+            <p><strong>Manufacturer:</strong> <span id="mriManufacturer"></span></p>
+            <p><strong>Pixel Spacing:</strong> <span id="mriPixelSpacing"></span></p>
+            <p><strong>Protocol Name:</strong> <span id="mriProtocolName"></span></p>
+            <p><strong>MRI Type:</strong> <span id="mriType"></span></p>
+            <p><strong>Orientation:</strong> <span id="mriOrientation"></span></p>
+            <p><strong>Repetition Time:</strong> <span id="mriTR"></span></p>
+            <p><strong>Echo Time:</strong> <span id="mriTE"></span></p>
+            <p><strong>Inversion Time:</strong> <span id="mriTI"></span></p>
+            <p><strong>Flip Angle:</strong> <span id="mriFlipAngle"></span></p>
+            <p><strong>Magnetic Field Strength:</strong> <span id="mriFieldStrength"></span></p>
+            <p><strong>Acquisition Matrix:</strong> <span id="mriAcqMatrix"></span></p>
+            <p><strong>Pixel Bandwidth:</strong> <span id="mriPixelBandwidth"></span></p>
+            <p><strong>Field of View:</strong> <span id="mriFOV"></span></p>
+          </div>
+        </div>
+      </section>
     </div>
   </div>
-</section>
+</div>
+
 
 <script>
     // Global images array that holds objects representing each image file.
@@ -106,16 +154,71 @@
             grid.appendChild(col);
         });
 
-        // Add click listeners to each image container to toggle selection.
+        // Add click listeners to each image container
         var imgContainers = document.querySelectorAll('.img-selectable');
         imgContainers.forEach(function(div) {
             div.addEventListener('click', function() {
-                var index = this.getAttribute('data-index');
+                var index = parseInt(this.getAttribute('data-index'));
+                // Toggle the selection state
                 images[index].selected = !images[index].selected;
+                if (images[index].selected) {
+                    // Record the time of selection
+                    images[index].selectedAt = Date.now();
+                } else {
+                    images[index].selectedAt = null;
+                }
                 this.classList.toggle('selected', images[index].selected);
+
+                // Find all selected images that have a selection timestamp.
+                var selectedImages = images.filter(function(img) {
+                    return img.selected && img.selectedAt;
+                });
+                if (selectedImages.length > 0) {
+                    // Sort them by the selection time descending (most recent first)
+                    selectedImages.sort(function(a, b) {
+                        return b.selectedAt - a.selectedAt;
+                    });
+                    var lastSelected = selectedImages[0];
+                    updateInfoSection(lastSelected);
+                } else {
+                    // Hide the info section if no images are selected
+                    document.getElementById('infoSection').style.display = 'none';
+                }
             });
         });
     }
+
+    function updateInfoSection(img) {
+        // Populate your info section with the metadata from the clicked image
+        // For example:
+        document.getElementById('patientID').textContent = img.patient_metadata ? img.patient_metadata.patient_id : "";
+        document.getElementById('patientAge').textContent = img.patient_metadata ? img.patient_metadata.age : "";
+        document.getElementById('patientWeight').textContent = img.patient_metadata ? img.patient_metadata.weight : "";
+        document.getElementById('patientHeight').textContent = img.patient_metadata ? img.patient_metadata.height : "";
+        document.getElementById('patientSex').textContent = img.patient_metadata ? img.patient_metadata.sex : "";
+
+        document.getElementById('mriFilename').textContent = img.filename || "";
+        document.getElementById('mriFiletype').textContent = img.mri_metadata ? img.mri_metadata.filetype : "";
+        document.getElementById('mriModality').textContent = img.mri_metadata ? img.mri_metadata.modality : "";
+        document.getElementById('mriManufacturer').textContent = img.mri_metadata ? img.mri_metadata.manufacturer : "";
+        document.getElementById('mriPixelSpacing').textContent = img.mri_metadata ? img.mri_metadata.pixel_spacing : "";
+        document.getElementById('mriProtocolName').textContent = img.mri_metadata ? img.mri_metadata.protocol_name : "";
+        document.getElementById('mriType').textContent = img.mri_metadata ? img.mri_metadata.mri_type : "";
+        document.getElementById('mriOrientation').textContent = img.mri_metadata ? img.mri_metadata.orientation : "";
+        document.getElementById('mriTR').textContent = img.mri_metadata ? img.mri_metadata.repetition_time : "";
+        document.getElementById('mriTE').textContent = img.mri_metadata ? img.mri_metadata.echo_time : "";
+        document.getElementById('mriTI').textContent = img.mri_metadata ? img.mri_metadata.inversion_time : "";
+        document.getElementById('mriFlipAngle').textContent = img.mri_metadata ? img.mri_metadata.flip_angle : "";
+        document.getElementById('mriFieldStrength').textContent = img.mri_metadata ? img.mri_metadata.magnetic_field_strength : "";
+        document.getElementById('mriAcqMatrix').textContent = img.mri_metadata ? img.mri_metadata.acquisition_matrix : "";
+        document.getElementById('mriPixelBandwidth').textContent = img.mri_metadata ? img.mri_metadata.pixel_bandwidth : "";
+        document.getElementById('mriFOV').textContent = img.mri_metadata ? img.mri_metadata.fov : "";
+
+        // Show the info section.
+        document.getElementById('infoSection').style.display = 'block';
+    }
+
+
 
     // This function is called when files are selected.
     // It constructs a FormData object with the selected files and sends them via AJAX.
@@ -148,9 +251,17 @@
            // Assume the API returns an array of file URLs under "files".
            // Combine these URLs with the original File objects.
            images = data.files.map(function(filePath, index) {
-               return { id: index, src: filePath, selected: false, file: filesArray[index] };
-           });
-           renderGrid();
+              return {
+                id: index,
+                src: filePath,
+                selected: false,
+                file: filesArray[index],
+                // Assuming the API returns metadata arrays:
+                patient_metadata: data.patient_metadata ? data.patient_metadata[index] : {},
+                mri_metadata: data.mri_metadata ? data.mri_metadata[index] : {}
+              };
+            });
+            renderGrid();
        })
        .catch(error => {
            console.error('Error uploading files:', error);
@@ -161,12 +272,27 @@
     document.getElementById('selectAllCheckbox').addEventListener('change', function() {
         var isChecked = this.checked;
         // Update all images to have the same selected state.
-        images.forEach(function(img) {
-          img.selected = isChecked;
+        images.forEach(function(img, idx) {
+            img.selected = isChecked;
+            if(isChecked) {
+                // Optionally, record a timestamp; however, here we'll use the array order.
+                img.selectedAt = Date.now();
+            } else {
+                img.selectedAt = null;
+            }
         });
-        // Re-render the grid to show the updated selection.
         renderGrid();
+
+        // If "Select All" is checked, update the info section to show the last image in the list.
+        if (isChecked && images.length > 0) {
+            // Here we choose the image at the end of the array.
+            updateInfoSection(images[images.length - 1]);
+        } else {
+            // Hide the info section if nothing is selected.
+            document.getElementById('infoSection').style.display = 'none';
+        }
     });
+
 
     // Listen for changes on the selection box and update the file input accordingly.
     document.getElementById('uploadType').addEventListener('change', function() {
@@ -227,9 +353,7 @@
         var uploadType = document.getElementById('uploadType').value;
         var imgType;
 
-        // Determine imgType based on upload type and file extension of the first image (if available)
         if (uploadType === 'img') {
-            // For images, try to get the extension from file.name or fallback from src.
             var fileName;
             if (selectedImages.length > 0) {
                 if (selectedImages[0].file && selectedImages[0].file.name) {
@@ -243,13 +367,12 @@
                 } else if (ext === 'jpg' || ext === 'jpeg') {
                     imgType = 'image/jpeg';
                 } else {
-                    imgType = 'image/' + ext; // fallback in case of an unusual extension
+                    imgType = 'image/' + ext;
                 }
             } else {
-                imgType = 'image/png'; // default fallback
+                imgType = 'image/png';
             }
         } else if (uploadType === 'single_dcm') {
-            // For a single DICOM/IMA file: if extension is ima then type is "ima", otherwise "dicom"
             var fileName;
             if (selectedImages.length > 0) {
                 if (selectedImages[0].file && selectedImages[0].file.name) {
@@ -267,21 +390,26 @@
                 imgType = 'dicom';
             }
         } else if (uploadType === 'dir_dcm') {
-            // For a directory of DICOM files, always set type to dicom.
             imgType = 'dicom';
         } else {
-            // Fallback in case nothing is selected.
             imgType = 'image/png';
         }
 
         // Append the imgType to the FormData
         formData.append('imgType', imgType);
-
         console.log("Sending FormData with imgType: " + imgType);
-        // Optionally iterate over formData entries for debugging:
-        // for (var pair of formData.entries()) {
-        //     console.log(pair[0]+ ': ' + pair[1]);
-        // }
+
+        // Create arrays for patient and MRI metadata from the selected images
+        var patientMetaArray = selectedImages.map(function(img) {
+            return img.patient_metadata || {};
+        });
+        var mriMetaArray = selectedImages.map(function(img) {
+            return img.mri_metadata || {};
+        });
+
+        // Append these metadata arrays as JSON strings to the FormData
+        formData.append('patient_metadata', JSON.stringify(patientMetaArray));
+        formData.append('mri_metadata', JSON.stringify(mriMetaArray));
 
         // Make the AJAX call to the save_image API endpoint
         fetch('/api/save-image/', {
@@ -306,6 +434,7 @@
             console.error('Error saving images:', error);
         });
     });
+
 
 </script>
 

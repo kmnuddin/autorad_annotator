@@ -21,13 +21,13 @@ import matplotlib.pyplot as plt
 from django.conf import settings
 
 import os
-
+import json
 import datetime
 
 
 # import customized class models
-from .models import patientClass, reportClass, MRI, UNetMask, UNetMaskStructure
-from .utils import one_hot_encode_masks, dicom_to_png
+from .models import MRI, UNetMask, UNetMaskStructure, Patient
+from .utils import one_hot_encode_masks, dicom_to_png, extract_mri_metadata, extract_patient_metadata
 
 from django.contrib.auth.decorators import login_required
 
@@ -331,6 +331,8 @@ def process_mri_for_view(request):
     os.makedirs(temp_save_dir, exist_ok=True)
 
     saved_files = []
+    patient_metadata_list = []
+    mri_metadata_list = []
 
     # Process JPEG/PNG images (saved directly)
     if 'imageInput' in request.FILES:
@@ -340,8 +342,9 @@ def process_mri_for_view(request):
             with open(file_path, 'wb+') as destination:
                 for chunk in file.chunks():
                     destination.write(chunk)
-            file_path = os.path.join(settings.MEDIA_URL, str(request.user), 'temp', file.name)
-            saved_files.append(file_path)
+            file_url = os.path.join(settings.MEDIA_URL, str(request.user), 'temp', file.name)
+            saved_files.append(file_url)
+            # No DICOM metadata extraction for standard image files
 
     # Process DICOM/IMA files (single or multiple) uploaded via 'dicomInput'
     if 'dicomInput' in request.FILES:
@@ -350,10 +353,13 @@ def process_mri_for_view(request):
             base_name = os.path.splitext(file.name)[0]
             output_file_name = base_name + '.png'
             output_path = os.path.join(temp_save_dir, output_file_name)
-            # Convert the DICOM file to a PNG.
-            dicom_to_png(file, output_path)
-            output_path = os.path.join(settings.MEDIA_URL, str(request.user), 'temp', output_file_name)
-            saved_files.append(output_path)
+            # Convert the DICOM file to a PNG and obtain the pydicom Dataset.
+            ds = dicom_to_png(file, output_path)
+            file_url = os.path.join(settings.MEDIA_URL, str(request.user), 'temp', output_file_name)
+            saved_files.append(file_url)
+            # Extract metadata for this file
+            patient_metadata_list.append(extract_patient_metadata(ds))
+            mri_metadata_list.append(extract_mri_metadata(ds))
 
     # Process directory of DICOM/IMA files uploaded via 'dicomDirInput'
     if 'dicomDirInput' in request.FILES:
@@ -362,13 +368,18 @@ def process_mri_for_view(request):
             base_name = os.path.splitext(file.name)[0]
             output_file_name = base_name + '.png'
             output_path = os.path.join(temp_save_dir, output_file_name)
-            dicom_to_png(file, output_path)
-            output_path = os.path.join(settings.MEDIA_URL, str(request.user), 'temp', output_file_name)
-            saved_files.append(output_path)
+            ds = dicom_to_png(file, output_path)
+            file_url = os.path.join(settings.MEDIA_URL, str(request.user), 'temp', output_file_name)
+            saved_files.append(file_url)
+            # Extract metadata for this file
+            patient_metadata_list.append(extract_patient_metadata(ds))
+            mri_metadata_list.append(extract_mri_metadata(ds))
 
     return Response({
         "message": "Files processed and saved successfully.",
         "files": saved_files,
+        "patient_metadata": patient_metadata_list,
+        "mri_metadata": mri_metadata_list,
     })
 
 
@@ -382,13 +393,23 @@ def save_image(request):
             os.makedirs(save_dir_img)
 
         # Get the list of processed image URLs sent from the client.
-        # These should be strings like "/media/<username>/images/temp/filename.png"
+        # Expected: strings like "/media/<username>/temp/filename.png"
         selected_files = request.POST.getlist('selected_files')
         if not selected_files:
             return Response({"error": "No selected files provided."}, status=400)
 
-        for file_url in selected_files:
-            # Remove the MEDIA_URL prefix (e.g. "/media/") to get the relative path.
+        # Retrieve metadata arrays (as JSON strings) and parse them.
+        patient_meta_json = request.POST.get('patient_metadata', '[]')
+        mri_meta_json = request.POST.get('mri_metadata', '[]')
+        try:
+            patient_meta_list = json.loads(patient_meta_json)
+            mri_meta_list = json.loads(mri_meta_json)
+        except Exception as e:
+            return Response({"error": "Invalid metadata format."}, status=400)
+
+        # Loop over each file and its corresponding metadata (assume same order/index)
+        for idx, file_url in enumerate(selected_files):
+            # Remove the MEDIA_URL prefix to get the relative path.
             if file_url.startswith(settings.MEDIA_URL):
                 relative_temp_path = file_url[len(settings.MEDIA_URL):]
             else:
@@ -397,7 +418,6 @@ def save_image(request):
             # Build the absolute path to the temporary file.
             temp_file_path = os.path.join(settings.MEDIA_ROOT, relative_temp_path)
             if not os.path.exists(temp_file_path):
-                # Skip files that don't exist.
                 continue
 
             # Destination filename remains the same (assumed to be PNG)
@@ -405,22 +425,58 @@ def save_image(request):
             dest_file_path = os.path.join(save_dir_img, new_filename)
 
             try:
-                # Open the image from the temporary file
+                # Open the image from the temporary file.
                 im = Image.open(temp_file_path)
-                # Check if size is not (320,320)
+                # Resize if needed
                 if im.size != (320, 320):
-                    im = im.resize((320, 320), Image.ANTIALIAS)
-                # Optionally ensure the image is in grayscale
+                    try:
+                        resample = Image.Resampling.LANCZOS  # For Pillow >=10.0.0
+                    except AttributeError:
+                        resample = Image.LANCZOS  # For older versions
+                    im = im.resize((320, 320), resample)
+                # Convert to grayscale
                 im = im.convert('L')
-                # Save the processed image as PNG to the destination file
+                # Save as PNG in the permanent directory.
                 im.save(dest_file_path, format='PNG')
             except Exception as e:
-                # Optionally log error and skip this file
                 print(f"Error processing file {temp_file_path}: {e}")
                 continue
 
             # Build relative permanent path (e.g., "<username>/images/filename.png")
             relative_permanent_path = os.path.join(user_str, 'images', new_filename)
+
+            # Get the metadata for this image. Use empty dicts if not available.
+            try:
+                current_patient_meta = patient_meta_list[idx]
+            except IndexError:
+                current_patient_meta = {}
+            try:
+                current_mri_meta = mri_meta_list[idx]
+            except IndexError:
+                current_mri_meta = {}
+
+            # Patient saving: use 'patient_id' from the metadata (from DICOM, for example).
+            external_patient_id = current_patient_meta.get('patient_id', '').strip()
+            # Only proceed if we have some identifier.
+            if external_patient_id:
+                # Check if a Patient record exists for this external ID and current user.
+                patient_obj = Patient.objects.filter(id_from_inst=external_patient_id, user=request.user).first()
+                if not patient_obj:
+                    # Create a new Patient record.
+                    # For weight and height, convert to proper types if needed.
+                    patient_obj = Patient.objects.create(
+                        id_from_inst = external_patient_id,
+                        age = current_patient_meta.get('age', ''),
+                        weight = current_patient_meta.get('weight', None),
+                        height = current_patient_meta.get('height', None),
+                        sex = current_patient_meta.get('sex', ''),
+                        user = request.user,
+                        from_module = current_patient_meta.get('from_module', '')
+                    )
+            else:
+                # If no external ID is provided, you may decide to skip creating an MRI record,
+                # or use a default patient record.
+                patient_obj = None
 
             # Create a new MRI instance.
             mriDB = MRI()
@@ -429,12 +485,37 @@ def save_image(request):
             mriDB.width = 320
             mriDB.height = 320
             mriDB.user = request.user
-            mriDB.path.name = relative_permanent_path  # Assuming MRI.path is a FileField/ImageField
+            mriDB.path.name = relative_permanent_path
+
+            # MRI metadata assignment
+            mriDB.modality = current_mri_meta.get('modality', '')
+            mriDB.manufacturer = current_mri_meta.get('manufacturer', '')
+            mriDB.pixel_spacing = current_mri_meta.get('pixel_spacing', '')
+            mriDB.protocol_name = current_mri_meta.get('protocol_name', '')
+            mriDB.mri_type = current_mri_meta.get('mri_type', '')
+            mriDB.orientation = current_mri_meta.get('orientation', '')
+            mriDB.repetition_time = current_mri_meta.get('repetition_time', '')
+            mriDB.echo_time = current_mri_meta.get('echo_time', '')
+            mriDB.inversion_time = current_mri_meta.get('inversion_time', '')
+            mriDB.flip_angle = current_mri_meta.get('flip_angle', '')
+            mriDB.magnetic_field_strength = current_mri_meta.get('magnetic_field_strength', '')
+            mriDB.acquisition_matrix = current_mri_meta.get('acquisition_matrix', '')
+            mriDB.pixel_bandwidth = current_mri_meta.get('pixel_bandwidth', '')
+            mriDB.fov = current_mri_meta.get('fov', '')
+            mriDB.uploaded_module = request.POST.get('uploaded_module', 'segmentation')
+
+            # Link MRI to the Patient if available
+            if patient_obj:
+                mriDB.Patient = patient_obj
             mriDB.save()
 
             print('Saved:', new_filename)
 
-
+        # # Optionally, delete the temporary folder if desired:
+        # temp_folder = os.path.join(settings.MEDIA_ROOT, user_str, 'temp')
+        # if os.path.exists(temp_folder):
+        #     shutil.rmtree(temp_folder)
+        #     print("Deleted temp folder")
 
         # After processing, redirect to home
         return redirect('/')

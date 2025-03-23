@@ -13,13 +13,37 @@ def user_directory_path(instance, filename):
 def userFolder(instance, filename):
     return ""
 
-class patientClass(models.Model):
-    patientID = models.CharField(max_length=100,default="1")
-    patientName = models.CharField(max_length=100,default="")
+
+class Patient(models.Model):
+    id_from_inst = models.CharField(max_length=300, default="1", blank=True)
+
+    # Patient's Age (e.g., "045Y")
+    age = models.CharField(max_length=10, blank=True, null=True)
+
+    # Patient's Weight in kilograms (e.g., 70.50)
+    weight = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
+
+    # Patient's Height in meters (e.g., 1.75)
+    height = models.DecimalField(max_digits=4, decimal_places=2, blank=True, null=True)
+
+    # Patient's Sex: M, F, or O (Other)
+    SEX_CHOICES = (
+        ('M', 'Male'),
+        ('F', 'Female'),
+        ('O', 'Other'),
+    )
+    sex = models.CharField(max_length=1, choices=SEX_CHOICES, blank=True, null=True)
+
+    user = models.ForeignKey(User, on_delete=models.SET_DEFAULT, default="-1")
+
+    from_module = models.CharField(max_length=10, blank=True, null=True)
+
+    def __str__(self):
+        return self.id_from_inst
+
+
     
-    # userID = models.ForeignKey(User,on_delete=models.CASCADE,default="000000000000")
-    
-class reportClass(models.Model):
+class Report(models.Model):
     reportName = models.CharField(max_length=200,default="")
     reprotID = models.CharField(max_length=100,default="1")
     reportContent = models.CharField(max_length=200,default="")
@@ -39,7 +63,27 @@ class MRI(models.Model):
 
     user = models.ForeignKey(User, on_delete=models.SET_DEFAULT, default="-1")
 
+    modality = models.CharField(max_length=50, blank=True, null=True)
+    manufacturer = models.CharField(max_length=100, blank=True, null=True)
 
+    pixel_spacing = models.CharField(max_length=50, blank=True, null=True)
+    protocol_name = models.CharField(max_length=100, blank=True, null=True)
+    # New fields for MRI type and orientation:
+    mri_type = models.CharField(max_length=20, blank=True, null=True)  # e.g., T1, T2, etc.
+    orientation = models.CharField(max_length=20, blank=True, null=True)
+
+    Patient = models.ForeignKey(Patient, on_delete=models.SET_DEFAULT, default="-1")
+
+    repetition_time = models.CharField(max_length=20, blank=True, null=True)
+    echo_time = models.CharField(max_length=20, blank=True, null=True)
+    inversion_time = models.CharField(max_length=20, blank=True, null=True)
+    flip_angle = models.CharField(max_length=20, blank=True, null=True)
+    magnetic_field_strength = models.CharField(max_length=20, blank=True, null=True)
+    acquisition_matrix = models.CharField(max_length=50, blank=True, null=True)
+    pixel_bandwidth = models.CharField(max_length=20, blank=True, null=True)
+    fov = models.CharField(max_length=50, blank=True, null=True)
+
+    uploaded_module = models.CharField(max_length=50, default="segmentation", blank=True, null=True)
 class UNetMask(models.Model):
     """
     Combine both the original UNet mask and
