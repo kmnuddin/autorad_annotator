@@ -35,22 +35,53 @@
       <section class="section">
         <h2 class="mb-4">Select Upload Option</h2>
         <form id="uploadForm" method="post" enctype="multipart/form-data">
-          {% csrf_token %}
-          <!-- Selection Box -->
-          <div class="mb-3">
-            <label for="uploadType" class="form-label">Choose Upload Type</label>
-            <select class="form-select" id="uploadType" name="uploadType">
-              <option value="">-- Select an Option --</option>
-              <option value="img">JPEG/PNG</option>
-              <option value="single_dcm">DCM/IMA</option>
-              <option value="dir_dcm">DICOM/IMA DIR</option>
-            </select>
-          </div>
+            {% csrf_token %}
+            <div class="row">
+              <!-- Upload Type Select -->
+              <div class="col-md-4">
+                <div class="mb-3">
+                  <label for="uploadType" class="form-label">Choose Upload Type</label>
+                  <select class="form-select" id="uploadType" name="uploadType">
+                    <option value="">-- Select an Option --</option>
+                    <option value="img">JPEG/PNG</option>
+                    <option value="single_dcm">DCM/IMA</option>
+                    <option value="dir_dcm">DICOM/IMA DIR</option>
+                  </select>
+                </div>
+              </div>
 
-          <!-- File Input Container: This will be updated based on the selection -->
-          <div class="mb-3" id="fileInputContainer">
-            <!-- The dynamic file input will appear here -->
-          </div>
+              <!-- Module Select -->
+              <div class="col-md-4">
+                <div class="mb-3">
+                  <label for="moduleSelect" class="form-label">Module</label>
+                  <select class="form-select" id="moduleSelect" name="module">
+                    <option value="segmentation">Segmentation</option>
+                    <option value="assessment_reporting">Assessment/Reporting</option>
+                  </select>
+                </div>
+              </div>
+
+              {% if user_institution|lower == "the university of memphis" %}
+              <div class="col-md-4">
+                <div class="mb-3">
+                  <label for="annotatorInstitution" class="form-label">Annotator Institution</label>
+                  <select class="form-select" id="annotatorInstitution" name="annotator_institution">
+                    {% for inst in institutions %}
+                      <option value="{{ inst }}">{{ inst }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+            {% endif %}
+
+
+
+            <!-- File Input Container: This will be updated based on the selection -->
+            <div class="mb-3" id="fileInputContainer">
+              <!-- The dynamic file input will appear here -->
+            </div>
+
+            </div>
         </form>
 
         <!-- Image Grid Section: This area displays image previews for user selection -->
@@ -296,43 +327,43 @@
 
     // Listen for changes on the selection box and update the file input accordingly.
     document.getElementById('uploadType').addEventListener('change', function() {
-      var selected = this.value;
-      var container = document.getElementById('fileInputContainer');
-      // Clear any existing input fields.
-      container.innerHTML = '';
+          var selected = this.value;
+          var container = document.getElementById('fileInputContainer');
+          // Clear any existing input fields.
+          container.innerHTML = '';
 
-      // Depending on the selection, add the proper file input:
-      if (selected === 'img') {
-        // Multiple JPEG/PNG images
-        container.innerHTML = `
-          <label for="imageInput" class="form-label">Select Image(s) (JPEG/PNG)</label>
-          <input type="file" class="form-control" id="imageInput" name="imageInput" accept=".jpg,.jpeg,.png" multiple>
-        `;
-        // Attach a change event so that files are uploaded immediately.
-        document.getElementById('imageInput').addEventListener('change', function() {
-            uploadFiles('imageInput');
+          // Depending on the selection, add the proper file input:
+          if (selected === 'img') {
+            // Multiple JPEG/PNG images
+            container.innerHTML = `
+              <label for="imageInput" class="form-label">Select Image(s) (JPEG/PNG)</label>
+              <input type="file" class="form-control" id="imageInput" name="imageInput" accept=".jpg,.jpeg,.png" multiple>
+            `;
+            // Attach a change event so that files are uploaded immediately.
+            document.getElementById('imageInput').addEventListener('change', function() {
+                uploadFiles('imageInput');
+            });
+          } else if (selected === 'single_dcm') {
+            // Multiple DICOM files (DCM/IMA)
+            container.innerHTML = `
+              <label for="dicomInput" class="form-label">Select DICOM File(s) (DCM/IMA)</label>
+              <input type="file" class="form-control" id="dicomInput" name="dicomInput" accept=".dcm,.ima" multiple>
+            `;
+            document.getElementById('dicomInput').addEventListener('change', function() {
+                uploadFiles('dicomInput');
+            });
+          } else if (selected === 'dir_dcm') {
+            // Single directory containing DICOM files.
+            // Note: The attributes "webkitdirectory" and "directory" allow a directory selection.
+            container.innerHTML = `
+              <label for="dicomDirInput" class="form-label">Select DICOM Directory (DCM/IMA Files)</label>
+              <input type="file" class="form-control" id="dicomDirInput" name="dicomDirInput" accept=".dcm,.ima" webkitdirectory directory>
+            `;
+            document.getElementById('dicomDirInput').addEventListener('change', function() {
+                uploadFiles('dicomDirInput');
+            });
+          }
         });
-      } else if (selected === 'single_dcm') {
-        // Multiple DICOM files (DCM/IMA)
-        container.innerHTML = `
-          <label for="dicomInput" class="form-label">Select DICOM File(s) (DCM/IMA)</label>
-          <input type="file" class="form-control" id="dicomInput" name="dicomInput" accept=".dcm,.ima" multiple>
-        `;
-        document.getElementById('dicomInput').addEventListener('change', function() {
-            uploadFiles('dicomInput');
-        });
-      } else if (selected === 'dir_dcm') {
-        // Single directory containing DICOM files.
-        // Note: The attributes "webkitdirectory" and "directory" allow a directory selection.
-        container.innerHTML = `
-          <label for="dicomDirInput" class="form-label">Select DICOM Directory (DCM/IMA Files)</label>
-          <input type="file" class="form-control" id="dicomDirInput" name="dicomDirInput" accept=".dcm,.ima" webkitdirectory directory>
-        `;
-        document.getElementById('dicomDirInput').addEventListener('change', function() {
-            uploadFiles('dicomDirInput');
-        });
-      }
-    });
 
     document.getElementById('uploadSelected').addEventListener('click', function() {
         // Gather selected images
@@ -411,6 +442,17 @@
         formData.append('patient_metadata', JSON.stringify(patientMetaArray));
         formData.append('mri_metadata', JSON.stringify(mriMetaArray));
 
+        // Retrieve the module and annotator institution values from the select boxes.
+        // The module select box should always be present.
+        var moduleValue = document.getElementById('moduleSelect').value;
+        // The annotator institution select box might be conditionally rendered.
+        var annotatorInstitutionSelect = document.getElementById('annotatorInstitution');
+        var annotatorInstitutionValue = annotatorInstitutionSelect ? annotatorInstitutionSelect.value : '';
+
+        // Append these values to the FormData.
+        formData.append('uploaded_module', moduleValue);
+        formData.append('annotator_institution', annotatorInstitutionValue);
+
         // Make the AJAX call to the save_image API endpoint
         fetch('/api/save-image/', {
             method: 'POST',
@@ -434,6 +476,7 @@
             console.error('Error saving images:', error);
         });
     });
+
 
 
 </script>

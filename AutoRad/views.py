@@ -11,6 +11,7 @@ from urllib.parse import unquote
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.http import JsonResponse
+from AutoRad.accounts.forms import CustomUserCreationForm
 import cv2
 import shutil
 from PIL import Image
@@ -43,28 +44,56 @@ STRUCT_COLORS = {
 
 
 class SignUpView(CreateView):
-    form_class = UserCreationForm
+    form_class = CustomUserCreationForm
     template_name = 'registration/signup.html'
     success_url = reverse_lazy('home')  # Redirect to the home page after signup
 
     def form_valid(self, form):
         response = super().form_valid(form)
         user = form.save()
-        print("User created:", user.username)
         login(self.request, user)  # Automatically log in the user after registration
         return response
 
 
 @login_required
-### When homepage is loading, it will pull all the image from DB.
 def home(request):
-    images = MRI.objects.all()
+    user_institution = (request.user.institution or "").strip().lower()
+
+    # Check if the user is from The University of Memphis
+    if user_institution == "the university of memphis":
+        images = MRI.objects.all()
+    else:
+        # Otherwise, only show MRI from users sharing the same institution.
+        images = MRI.objects.filter(annotator_inst__iexact=request.user.institution)
+
     context = {'images': images}
     return render(request, 'home.html', context)
 
 
 def saveImg(request):
-    return render(request, 'saveImg.html')
+    # Determine the directory of this file (views.py)
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    # Construct the path to the institutions.json file in the accounts folder
+    institutions_path = os.path.join(base_dir, 'accounts', 'institutions.json')
+
+    try:
+        with open(institutions_path, 'r') as f:
+            institutions = json.load(f)
+    except Exception as e:
+        institutions = []
+        print("Error loading institutions.json:", e)
+
+    # Get the current user's institution if available
+    user_institution = None
+    if request.user.is_authenticated:
+        user_institution = request.user.institution
+
+    context = {
+        'institutions': institutions,  # This should be a list of institution names (or tuples if you prefer)
+        'user_institution': user_institution,
+    }
+
+    return render(request, 'saveImg.html', context)
 
 
 
@@ -209,6 +238,7 @@ def upload_mask(request):
             edited=True,
             width=edited_mask.shape[1],   # width = 320
             height=edited_mask.shape[0],  # height = 320
+            edited_by=request.user,
         )
 
         # 10) Create structure images from the channels in mask_np
@@ -297,8 +327,9 @@ def process_image(request):
             if not os.path.exists(save_dir_mask_npy):
                 os.makedirs(save_dir_mask_npy)
 
-            mask_img_filename = mri_path.split("\\")[-1].split('.')[0] + '.png'
-            mask_npy_filename = mask_img_filename.split('.')[0] + '.npy'
+            filename = os.path.basename(mri_path)  # Extracts just the file name from the full path.
+            mask_img_filename = os.path.splitext(filename)[0] + '.png'
+            mask_npy_filename = os.path.splitext(filename)[0] + '.npy'
 
             mask_img_path = os.path.join(save_dir_mask_img, mask_img_filename)
             mask_npy_path = os.path.join(save_dir_mask_npy, mask_npy_filename)
@@ -314,6 +345,7 @@ def process_image(request):
             unetmask.width, unetmask.height = mask_img.shape
             unetmask.mask_version = 'original'
             unetmask.edited = False
+            unetmask.edited_by = request.user
             unetmask.MRI = selected_mri
 
             plt.imsave(mask_img_path, mask_img, cmap='gray')
@@ -393,12 +425,12 @@ def save_image(request):
             os.makedirs(save_dir_img)
 
         # Get the list of processed image URLs sent from the client.
-        # Expected: strings like "/media/<username>/temp/filename.png"
         selected_files = request.POST.getlist('selected_files')
         if not selected_files:
             return Response({"error": "No selected files provided."}, status=400)
 
         # Retrieve metadata arrays (as JSON strings) and parse them.
+        # For standard images, these may be empty.
         patient_meta_json = request.POST.get('patient_metadata', '[]')
         mri_meta_json = request.POST.get('mri_metadata', '[]')
         try:
@@ -407,9 +439,11 @@ def save_image(request):
         except Exception as e:
             return Response({"error": "Invalid metadata format."}, status=400)
 
-        # Loop over each file and its corresponding metadata (assume same order/index)
+        # Determine the overall image type from the POST data.
+        upload_img_type = request.POST.get('imgType', 'image/png').lower()
+
         for idx, file_url in enumerate(selected_files):
-            # Remove the MEDIA_URL prefix to get the relative path.
+            # Remove the MEDIA_URL prefix (e.g. "/media/") to get the relative path.
             if file_url.startswith(settings.MEDIA_URL):
                 relative_temp_path = file_url[len(settings.MEDIA_URL):]
             else:
@@ -425,18 +459,18 @@ def save_image(request):
             dest_file_path = os.path.join(save_dir_img, new_filename)
 
             try:
-                # Open the image from the temporary file.
+                # Open the image from the temporary file
                 im = Image.open(temp_file_path)
                 # Resize if needed
                 if im.size != (320, 320):
                     try:
-                        resample = Image.Resampling.LANCZOS  # For Pillow >=10.0.0
+                        resample = Image.Resampling.LANCZOS  # For Pillow >= 10
                     except AttributeError:
                         resample = Image.LANCZOS  # For older versions
                     im = im.resize((320, 320), resample)
                 # Convert to grayscale
                 im = im.convert('L')
-                # Save as PNG in the permanent directory.
+                # Save processed image as PNG to the permanent folder
                 im.save(dest_file_path, format='PNG')
             except Exception as e:
                 print(f"Error processing file {temp_file_path}: {e}")
@@ -445,38 +479,53 @@ def save_image(request):
             # Build relative permanent path (e.g., "<username>/images/filename.png")
             relative_permanent_path = os.path.join(user_str, 'images', new_filename)
 
-            # Get the metadata for this image. Use empty dicts if not available.
-            try:
-                current_patient_meta = patient_meta_list[idx]
-            except IndexError:
-                current_patient_meta = {}
-            try:
-                current_mri_meta = mri_meta_list[idx]
-            except IndexError:
+            # For DICOM/IMA files, extract metadata and save Patient record.
+            # For standard image files (JPEG/PNG), skip patient metadata.
+            if upload_img_type in ['dicom', 'ima']:
+                try:
+                    current_patient_meta = patient_meta_list[idx]
+                except IndexError:
+                    current_patient_meta = {}
+                try:
+                    current_mri_meta = mri_meta_list[idx]
+                except IndexError:
+                    current_mri_meta = {}
+
+                # Determine external patient ID from metadata.
+                external_patient_id = current_patient_meta.get('patient_id', '').strip()
+                if external_patient_id:
+                    # Look up an existing Patient record for this user.
+                    patient_obj = Patient.objects.filter(id_from_inst=external_patient_id, user=request.user).first()
+                    if not patient_obj:
+                        patient_obj = Patient.objects.create(
+                            id_from_inst=external_patient_id,
+                            age=current_patient_meta.get('age', ''),
+                            weight=current_patient_meta.get('weight', None),
+                            height=current_patient_meta.get('height', None),
+                            sex=current_patient_meta.get('sex', ''),
+                            user=request.user,
+                            from_module=current_patient_meta.get('from_module', '')
+                        )
+                else:
+                    # If no external patient ID, you may decide to create a default record.
+                    default_id = "N/A"
+                    patient_obj = Patient.objects.filter(id_from_inst=default_id, user=request.user).first()
+                    if not patient_obj:
+                        patient_obj = Patient.objects.create(
+                            id_from_inst=default_id,
+                            user=request.user
+                        )
+            else:
+                # For JPEG/PNG images, do not create a patient record.
+                patient_obj = None
+                # Optionally, you might clear out any metadata:
                 current_mri_meta = {}
 
-            # Patient saving: use 'patient_id' from the metadata (from DICOM, for example).
-            external_patient_id = current_patient_meta.get('patient_id', '').strip()
-            # Only proceed if we have some identifier.
-            if external_patient_id:
-                # Check if a Patient record exists for this external ID and current user.
-                patient_obj = Patient.objects.filter(id_from_inst=external_patient_id, user=request.user).first()
-                if not patient_obj:
-                    # Create a new Patient record.
-                    # For weight and height, convert to proper types if needed.
-                    patient_obj = Patient.objects.create(
-                        id_from_inst = external_patient_id,
-                        age = current_patient_meta.get('age', ''),
-                        weight = current_patient_meta.get('weight', None),
-                        height = current_patient_meta.get('height', None),
-                        sex = current_patient_meta.get('sex', ''),
-                        user = request.user,
-                        from_module = current_patient_meta.get('from_module', '')
-                    )
-            else:
-                # If no external ID is provided, you may decide to skip creating an MRI record,
-                # or use a default patient record.
-                patient_obj = None
+            # Retrieve the module and annotator institution from POST data.
+            uploaded_module = request.POST.get('uploaded_module', '').strip()  # No default here; client must supply a value.
+            annotator_institution = request.POST.get('annotator_institution', '').strip()
+            if not annotator_institution:
+                annotator_institution = request.user.institution or ''
 
             # Create a new MRI instance.
             mriDB = MRI()
@@ -486,8 +535,7 @@ def save_image(request):
             mriDB.height = 320
             mriDB.user = request.user
             mriDB.path.name = relative_permanent_path
-
-            # MRI metadata assignment
+            # Assign MRI metadata fields only if available (for DICOM/IMA)
             mriDB.modality = current_mri_meta.get('modality', '')
             mriDB.manufacturer = current_mri_meta.get('manufacturer', '')
             mriDB.pixel_spacing = current_mri_meta.get('pixel_spacing', '')
@@ -502,22 +550,13 @@ def save_image(request):
             mriDB.acquisition_matrix = current_mri_meta.get('acquisition_matrix', '')
             mriDB.pixel_bandwidth = current_mri_meta.get('pixel_bandwidth', '')
             mriDB.fov = current_mri_meta.get('fov', '')
-            mriDB.uploaded_module = request.POST.get('uploaded_module', 'segmentation')
+            mriDB.module = uploaded_module
+            mriDB.annotator_inst = annotator_institution
 
-            # Link MRI to the Patient if available
-            if patient_obj:
-                mriDB.Patient = patient_obj
+            # Link MRI to the Patient if applicable; for standard images, leave as None.
+            mriDB.Patient = patient_obj
             mriDB.save()
 
-            print('Saved:', new_filename)
-
-        # # Optionally, delete the temporary folder if desired:
-        # temp_folder = os.path.join(settings.MEDIA_ROOT, user_str, 'temp')
-        # if os.path.exists(temp_folder):
-        #     shutil.rmtree(temp_folder)
-        #     print("Deleted temp folder")
-
-        # After processing, redirect to home
         return redirect('/')
 
     return Response({"error": "Invalid request method."}, status=405)

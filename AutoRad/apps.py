@@ -6,3 +6,4 @@ class AutoRadConfig(AppConfig):
     def ready(self):
         import AutoRad.signals
         load_model()
+

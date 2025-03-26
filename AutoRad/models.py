@@ -1,7 +1,10 @@
 from django.db import models
-from django.contrib.auth.models import User
+
+from django.conf import settings
+
 from django.utils import timezone
 import os
+
 
 ### Each user will have multiple imgs:   user --[1 to many] --> img
 ### Each image will have multiple masks: img --[1 to many] --> mask
@@ -9,6 +12,7 @@ import os
 def user_directory_path(instance, filename):
     print(instance.userAcc)
     return 'user_{0}/{1}'.format(instance.userAcc.id, filename)
+
 
 def userFolder(instance, filename):
     return ""
@@ -32,26 +36,30 @@ class Patient(models.Model):
         ('F', 'Female'),
         ('O', 'Other'),
     )
+
+    MODULES = (
+        ('Segmentation', 'Segmentation'),
+        ('Assessment/Reporting', 'Assessment/Reporting')
+    )
     sex = models.CharField(max_length=1, choices=SEX_CHOICES, blank=True, null=True)
 
-    user = models.ForeignKey(User, on_delete=models.SET_DEFAULT, default="-1")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_DEFAULT, default="-1")
 
-    from_module = models.CharField(max_length=10, blank=True, null=True)
-
+    from_module = models.CharField(max_length=50, choices=MODULES, blank=True, null=True)
     def __str__(self):
         return self.id_from_inst
 
 
-    
 class Report(models.Model):
-    reportName = models.CharField(max_length=200,default="")
-    reprotID = models.CharField(max_length=100,default="1")
-    reportContent = models.CharField(max_length=200,default="")
-    
+    reportName = models.CharField(max_length=200, default="")
+    reprotID = models.CharField(max_length=100, default="1")
+    reportContent = models.CharField(max_length=200, default="")
+
     # patientID = models.ForeignKey(patientClass,on_delete=models.CASCADE,default="000000000000")
-    
+
     # reportID = models.ForeignKey(reportClass,on_delete=models.CASCADE,default="1")
-    
+
+
 class MRI(models.Model):
     filename = models.CharField(max_length=200, default="example_image.png")
     filetype = models.CharField(max_length=30, default="image/png")
@@ -61,7 +69,7 @@ class MRI(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
-    user = models.ForeignKey(User, on_delete=models.SET_DEFAULT, default="-1")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_DEFAULT, default="-1")
 
     modality = models.CharField(max_length=50, blank=True, null=True)
     manufacturer = models.CharField(max_length=100, blank=True, null=True)
@@ -72,7 +80,7 @@ class MRI(models.Model):
     mri_type = models.CharField(max_length=20, blank=True, null=True)  # e.g., T1, T2, etc.
     orientation = models.CharField(max_length=20, blank=True, null=True)
 
-    Patient = models.ForeignKey(Patient, on_delete=models.SET_DEFAULT, default="-1")
+    Patient = models.ForeignKey(Patient, on_delete=models.SET_DEFAULT, default="-1", null=True, blank=True)
 
     repetition_time = models.CharField(max_length=20, blank=True, null=True)
     echo_time = models.CharField(max_length=20, blank=True, null=True)
@@ -83,7 +91,15 @@ class MRI(models.Model):
     pixel_bandwidth = models.CharField(max_length=20, blank=True, null=True)
     fov = models.CharField(max_length=50, blank=True, null=True)
 
-    uploaded_module = models.CharField(max_length=50, default="segmentation", blank=True, null=True)
+    MODULES = (
+        ('Segmentation', 'Segmentation'),
+        ('Assessment/Reporting', 'Assessment/Reporting')
+    )
+
+    module = models.CharField(max_length=50, choices=MODULES, blank=True, null=True)
+    annotator_inst = models.CharField(max_length=100, blank=True, null=True)
+
+
 class UNetMask(models.Model):
     """
     Combine both the original UNet mask and
@@ -103,6 +119,7 @@ class UNetMask(models.Model):
 
     # track if user has manually edited it
     edited = models.BooleanField(default=False)
+    edited_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_DEFAULT, default="-1", blank=True, null=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -122,12 +139,3 @@ class UNetMaskStructure(models.Model):
     height = models.IntegerField(default=320)
 
     created_at = models.DateTimeField(auto_now_add=True)
-
-
-
-class testClass(models.Model):
-    fn = models.CharField(max_length=10,default="John")
-    ln = models.CharField(max_length=10,default="Doe")
-    
-    userID = models.ForeignKey(User,on_delete=models.SET_DEFAULT,default="1")
-    
