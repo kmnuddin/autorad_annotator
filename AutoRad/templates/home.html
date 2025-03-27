@@ -509,6 +509,34 @@
     /**
      * Polygon functions
      */
+    function updateMaskData(maskId, polygon) {
+        // Assume usersDB[curUserID].images[curImageID] is an object containing masks grouped by structure,
+        // e.g. { "IVD": [ mask1, mask2, ... ], "PE": [...], ... }
+        var imgObj = usersDB[curUserID].images[curImageID];
+        for (var structure in imgObj) {
+            if (Array.isArray(imgObj[structure])) {
+                for (var i = 0; i < imgObj[structure].length; i++) {
+                    if (imgObj[structure][i].id === maskId) {
+                        // Update all the fields:
+                        imgObj[structure][i].points = polygon._originalPoints || polygon.points;
+                        imgObj[structure][i].top = polygon.top;
+                        imgObj[structure][i].left = polygon.left;
+                        imgObj[structure][i].angle = polygon.angle;
+                        // Use scaleX as the scale (assuming uniform scaling)
+                        imgObj[structure][i].Scale = polygon.scaleX;
+                        imgObj[structure][i].opacity = polygon.opacity;
+                        imgObj[structure][i].cornerColor = polygon.cornerColor;
+                        imgObj[structure][i].stroke = polygon.stroke;
+                        return; // updated, exit the function
+                    }
+                }
+            }
+        }
+    }
+
+
+
+
     // Polt all masks on canvas1
     function plotAllMasks() {
         removeAllMask();
@@ -554,16 +582,18 @@
 
     // polt one mask on canvas1
     function plotOnePolygon(mask) {
+        var struct = mask.id.slice(0, -1);
         var polygon = new fabric.Polygon(mask.points, {
             stroke:mask.stroke,
             strokeWidth: 1,
+            fill: structureColors[struct],
             top:mask.top,
             left:mask.left,
             angle:mask.angle,
             objectCaching: false,
             cornerColor:mask.cornerColor,
             opacity:mask.opacity,
-            label:mask.id.slice(0, -1),
+            label:struct,
             id:mask.id
         });
         polygon.scale(mask.Scale);
@@ -600,7 +630,6 @@
     }
 
 
-    // where do we use this function
     function actionHandler(eventData, transform, x, y) {
         var polygon = transform.target,
             currentControl = polygon.controls[polygon.__corner],
@@ -611,9 +640,25 @@
                 x: mouseLocalPosition.x * polygonBaseSize.x / size.x + polygon.pathOffset.x,
                 y: mouseLocalPosition.y * polygonBaseSize.y / size.y + polygon.pathOffset.y
             };
+
+        // Update the vertex in the displayed points.
         polygon.points[currentControl.pointIndex] = finalPointPosition;
+        // Also update the original points if you are keeping them.
+        if (polygon._originalPoints) {
+            polygon._originalPoints[currentControl.pointIndex] = {
+                x: finalPointPosition.x,
+                y: finalPointPosition.y
+            };
+        }
+
+        // Update the global mask data.
+        if (polygon.id) {
+            updateMaskData(polygon.id, polygon);
+        }
+
         return true;
     }
+
 
 
 
@@ -677,6 +722,11 @@
         var polygon = canvas1.getActiveObject();
         if (!polygon || polygon.type !== 'polygon') return;
 
+        // Store original points if not already stored.
+        if (!polygon._originalPoints) {
+            polygon._originalPoints = polygon.points.slice();
+        }
+
         // The slider now indicates the desired number of editable handles.
         var desiredHandles = parseInt(this.value, 10);
 
@@ -686,27 +736,35 @@
             this.value = 5;
         }
 
-        // Store the value on the polygon so that it “remembers” this configuration.
+        // Store the desired handle count on the polygon.
         polygon.desiredHandleCount = desiredHandles;
 
-        // Recalculate the subset of indices to assign controls.
-        const handleIndices = getSubsetOfIndices(polygon.points.length, desiredHandles);
-        var lastControl = polygon.points.length - 1;
-        // Clear and rebuild the polygon's controls.
+        // Compute the subset indices from the original points.
+        const handleIndices = getSubsetOfIndices(polygon._originalPoints.length, desiredHandles);
+
+        // Build new points array using only the selected indices.
+        var newPoints = handleIndices.map(function(i) {
+            return polygon._originalPoints[i];
+        });
+
+        // Update the polygon's points array with the new (visible) set.
+        polygon.points = newPoints;
+
+        // Rebuild the polygon's controls.
         polygon.controls = {};
-        for (let j = 0; j < handleIndices.length; j++) {
-            const index = handleIndices[j];
-            polygon.controls['p' + index] = new fabric.Control({
+        for (let j = 0; j < newPoints.length; j++) {
+            polygon.controls['p' + j] = new fabric.Control({
                 positionHandler: polygonPositionHandler,
-                actionHandler: anchorWrapper(index > 0 ? index - 1 : lastControl, actionHandler),
+                actionHandler: anchorWrapper(j > 0 ? j - 1 : newPoints.length - 1, actionHandler),
                 actionName: 'modifyPolygon',
-                pointIndex: index
+                pointIndex: j
             });
         }
 
         polygon.setCoords();
         canvas1.requestRenderAll();
     };
+
 
 
     function Edit() {
@@ -904,16 +962,19 @@
 
     // function to dynamic track the object manipulation
     function updateControls() {
-        var canvas1Obj = canvas1.getActiveObject()
+        var canvas1Obj = canvas1.getActiveObject();
         if (canvas1Obj) {
             document.getElementById("top-control").value = canvas1Obj.top;
             document.getElementById("left-control").value = canvas1Obj.left;
             document.getElementById("opacity-control").value = canvas1Obj.opacity;
             document.getElementById("angle-control").value = canvas1Obj.angle;
             document.getElementById("scale-control").value = canvas1Obj.scaleX;
-            //document.getElementById("scaleY-control").value = mask.ScaleY;
             document.getElementById("cornerColor").value = canvas1Obj.cornerColor;
             document.getElementById("strokecolor").value = canvas1Obj.stroke;
+
+            if (canvas1Obj.type === 'polygon' && canvas1Obj.id) {
+                updateMaskData(canvas1Obj.id, canvas1Obj);
+            }
         }
     }
 

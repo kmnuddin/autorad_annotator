@@ -337,6 +337,7 @@ function selectAll() {
 
     if (checkAllBox.checked) {
         plotAllMasks();
+        dropdown.selectedIndex = 0;
         dropdown.disabled = true
     } else {
         dropdown.disabled = false
