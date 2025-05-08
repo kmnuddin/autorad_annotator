@@ -91,7 +91,6 @@ statsmodels==0.14.1
 terminado==0.18.0
 threadpoolctl==3.2.0
 tinycss2==1.2.1
-tokenizers==0.15.0
 tomli==2.0.1
 torch==2.1.1
 torchaudio==2.1.1
