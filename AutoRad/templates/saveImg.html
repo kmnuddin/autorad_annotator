@@ -73,12 +73,26 @@
                 </div>
               </div>
             {% endif %}
-
+            <!-- Patient Select: hidden by default -->
+              <div class="col-md-4" id="patientSelectContainer" style="display: none;">
+                <div class="mb-3">
+                  <label for="patientSelect" class="form-label">Patient</label>
+                  <select class="form-select" id="patientSelect" name="patient_db">
+                    <option value="new" selected>New Patient</option>
+                    <!-- dynamically render other patients here -->
+                  </select>
+                </div>
+              </div>
 
 
             <!-- File Input Container: This will be updated based on the selection -->
             <div class="mb-3" id="fileInputContainer">
               <!-- The dynamic file input will appear here -->
+            </div>
+
+                    <!-- This note only shows for Assessment/Reporting -->
+            <div id="assessmentNote" class="form-text text-muted mb-3" style="display: none;">
+                Please note: if you upload multiple MRIs in one batch without selecting an existing patient, a new patient record will be created and all of those images will be linked to that same patient. To avoid misassignment, do not include MRIs from different patients in a single upload—each batch must contain scans for only one patient
             </div>
 
             </div>
@@ -111,7 +125,7 @@
             <h4>Patient Information</h4>
           </div>
           <div class="card-body">
-            <p><strong>Patient ID:</strong> <span id="patientID"></span></p>
+            <p><strong>ID from admitted institute:</strong> <span id="patientID"></span></p>
             <p><strong>Age:</strong> <span id="patientAge"></span></p>
             <p><strong>Weight:</strong> <span id="patientWeight"></span></p>
             <p><strong>Height:</strong> <span id="patientHeight"></span></p>
@@ -167,6 +181,27 @@
       }
       return cookieValue;
     }
+
+   // whenever module changes, show/hide both note & patient select:
+    document.getElementById('moduleSelect').addEventListener('change', function() {
+      var note = document.getElementById('assessmentNote');
+      var patientContainer = document.getElementById('patientSelectContainer');
+
+      if (this.value === 'assessment_reporting') {
+        note.style.display = 'block';
+        patientContainer.style.display = 'block';
+      } else {
+        note.style.display = 'none';
+        patientContainer.style.display = 'none';
+      }
+    });
+
+    // on page‐load, trigger once in case default is Assessment/Reporting
+    (function(){
+      var sel = document.getElementById('moduleSelect');
+      sel.dispatchEvent(new Event('change'));
+    })();
+
 
     // Render the images in a grid.
     function renderGrid() {
