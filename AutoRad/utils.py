@@ -11,6 +11,8 @@ from PIL import Image
 
 model = None
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+
 def load_model():
     global model
     global device
@@ -22,8 +24,7 @@ def load_model():
 
     model_path = os.path.join(settings.BASE_DIR, 'AutoRad', 'DL Model', 'best_unet.pth')
 
-
-    state_dict = torch.load(model_path)
+    state_dict = torch.load(model_path, map_location=torch.device('cpu'))
 
     model.load_state_dict(state_dict)
     model.to(device)
@@ -66,6 +67,7 @@ def one_hot_encode_masks(masks_numpy):
     one_hot = one_hot.permute(0, 3, 1, 2)
 
     return one_hot.numpy()
+
 
 def dicom_to_png(file_obj, output_path):
     """
@@ -157,7 +159,6 @@ def get_mri_type(ds):
     return "N/A"
 
 
-
 def get_orientation(ds):
     """
     Determine the orientation (axial, sagittal, or coronal) from a pydicom Dataset.
@@ -216,6 +217,7 @@ def get_orientation(ds):
             return "axial"
         return "N/A"
 
+
 def extract_patient_metadata(ds):
     """
     Extract patient metadata from a pydicom Dataset.
@@ -225,6 +227,7 @@ def extract_patient_metadata(ds):
                 'weight': str(getattr(ds, 'PatientWeight', '')), 'height': str(getattr(ds, 'PatientSize', '')),
                 'sex': str(getattr(ds, 'PatientSex', ''))}
     return metadata
+
 
 def extract_mri_metadata(ds):
     """
@@ -271,4 +274,3 @@ def extract_mri_metadata(ds):
     metadata['orientation'] = get_orientation(ds)
 
     return metadata
-
