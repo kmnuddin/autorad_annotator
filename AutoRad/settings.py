@@ -26,7 +26,7 @@ SECRET_KEY = 'django-insecure-xha5*0ih-4-9%x#8=hyd))do!7pluzi!3vs!yn3p!g6d=2yom5
 DEBUG = os.environ.get("DEBUG", "True") == "True"
 
 # In production, update ALLOWED_HOSTS with your Heroku app's domain.
-ALLOWED_HOSTS = ['autorad.herokuapp.com', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['autorad.herokuapp.com', 'autorad-b306bd6f90e4.herokuapp.com', 'localhost', '127.0.0.1']
 
 # Application definition
 INSTALLED_APPS = [
