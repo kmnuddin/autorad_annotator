@@ -15,9 +15,12 @@ from django.conf import settings
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'AutoRad.settings')
 application = get_wsgi_application()
 
-# first serve your STATIC_ROOT (already done)
-application = WhiteNoise(application, root=settings.STATIC_ROOT)
-
+# 1) serve the static files under STATIC_URL
+application = WhiteNoise(
+    application,
+    root=settings.STATIC_ROOT,
+    prefix=settings.STATIC_URL
+)
 # then also serve your MEDIA_ROOT under /media/
 application.add_files(settings.MEDIA_ROOT, prefix=settings.MEDIA_URL)
 
