@@ -1,37 +1,32 @@
-import numpy as np
-from django.shortcuts import render, redirect
-from django.utils import timezone
-from django.core.files.storage import FileSystemStorage
-from django.contrib.auth.forms import UserCreationForm
-from django.views.generic.edit import CreateView
-from django.core.files.base import ContentFile
-from django.urls import reverse_lazy
-from django.contrib.auth import login
+import datetime
+import json
+import os
 from urllib.parse import unquote
+from io import BytesIO
+import cv2
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
+import pydicom
+from PIL import Image
+from django.conf import settings
+from django.contrib.auth import login
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+from django.shortcuts import render, redirect
+from django.urls import reverse_lazy
+from django.utils import timezone
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
+from django.views.generic.edit import CreateView
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from django.http import JsonResponse
+
 from AutoRad.accounts.forms import CustomUserCreationForm
-import cv2
-import shutil
-from PIL import Image
-import torch
-import pickle
-from .utils import model, device
-import matplotlib.pyplot as plt
-from django.conf import settings
-
-import os
-import json
-import datetime
-
-
 # import customized class models
 from .models import MRI, UNetMask, UNetMaskStructure, Patient
-from .utils import one_hot_encode_masks, dicom_to_png, extract_mri_metadata, extract_patient_metadata
-
-from django.contrib.auth.decorators import login_required
-
+from .utils import model, device
+from .utils import one_hot_encode_masks, dicom_to_png_bytes, extract_mri_metadata, extract_patient_metadata
 
 SELECTED_MRI_ID = None
 
@@ -357,61 +352,112 @@ def process_image(request):
 
     return Response({'error': 'Invalid request'}, status=400)
 
+# @api_view(['POST'])
+# def process_mri_for_view(request):
+#     temp_save_dir = os.path.join(settings.MEDIA_ROOT, str(request.user), 'temp')
+#     os.makedirs(temp_save_dir, exist_ok=True)
+#
+#     saved_files = []
+#     patient_metadata_list = []
+#     mri_metadata_list = []
+#
+#     # Process JPEG/PNG images (saved directly)
+#     if 'imageInput' in request.FILES:
+#         image_files = request.FILES.getlist('imageInput')
+#         for file in image_files:
+#             file_path = os.path.join(temp_save_dir, file.name)
+#             with open(file_path, 'wb+') as destination:
+#                 for chunk in file.chunks():
+#                     destination.write(chunk)
+#             file_url = os.path.join(settings.MEDIA_URL, str(request.user), 'temp', file.name)
+#             saved_files.append(file_url)
+#             # No DICOM metadata extraction for standard image files
+#
+#     # Process DICOM/IMA files (single or multiple) uploaded via 'dicomInput'
+#     if 'dicomInput' in request.FILES:
+#         dicom_files = request.FILES.getlist('dicomInput')
+#         for file in dicom_files:
+#             base_name = os.path.splitext(file.name)[0]
+#             output_file_name = base_name + '.png'
+#             output_path = os.path.join(temp_save_dir, output_file_name)
+#             # Convert the DICOM file to a PNG and obtain the pydicom Dataset.
+#             ds = dicom_to_png(file, output_path)
+#             file_url = os.path.join(settings.MEDIA_URL, str(request.user), 'temp', output_file_name)
+#             saved_files.append(file_url)
+#             # Extract metadata for this file
+#             patient_metadata_list.append(extract_patient_metadata(ds))
+#             mri_metadata_list.append(extract_mri_metadata(ds))
+#
+#     # Process directory of DICOM/IMA files uploaded via 'dicomDirInput'
+#     if 'dicomDirInput' in request.FILES:
+#         dicom_dir_files = request.FILES.getlist('dicomDirInput')
+#         for file in dicom_dir_files:
+#             base_name = os.path.splitext(file.name)[0]
+#             output_file_name = base_name + '.png'
+#             output_path = os.path.join(temp_save_dir, output_file_name)
+#             ds = dicom_to_png(file, output_path)
+#             file_url = os.path.join(settings.MEDIA_URL, str(request.user), 'temp', output_file_name)
+#             saved_files.append(file_url)
+#             # Extract metadata for this file
+#             patient_metadata_list.append(extract_patient_metadata(ds))
+#             mri_metadata_list.append(extract_mri_metadata(ds))
+#
+#     return Response({
+#         "message": "Files processed and saved successfully.",
+#         "files": saved_files,
+#         "patient_metadata": patient_metadata_list,
+#         "mri_metadata": mri_metadata_list,
+#     })
+
 @api_view(['POST'])
 def process_mri_for_view(request):
-    temp_save_dir = os.path.join(settings.MEDIA_ROOT, str(request.user), 'temp')
-    os.makedirs(temp_save_dir, exist_ok=True)
-
+    """
+    Accepts JPEG/PNG or DICOM/IMA uploads, converts everything to PNG,
+    stores them under "<username>/temp/…" in S3, and returns their URLs
+    along with any extracted metadata.
+    """
+    user_folder = f"{request.user.username}/temp"
     saved_files = []
     patient_metadata_list = []
     mri_metadata_list = []
 
-    # Process JPEG/PNG images (saved directly)
-    if 'imageInput' in request.FILES:
-        image_files = request.FILES.getlist('imageInput')
-        for file in image_files:
-            file_path = os.path.join(temp_save_dir, file.name)
-            with open(file_path, 'wb+') as destination:
-                for chunk in file.chunks():
-                    destination.write(chunk)
-            file_url = os.path.join(settings.MEDIA_URL, str(request.user), 'temp', file.name)
-            saved_files.append(file_url)
-            # No DICOM metadata extraction for standard image files
+    # helper to save raw bytes into default_storage and return its URL
+    def _save_to_s3(filename, bytes_data):
+        path = f"{user_folder}/{filename}"
+        # overwrite if exists
+        if default_storage.exists(path):
+            default_storage.delete(path)
+        default_storage.save(path, ContentFile(bytes_data))
+        return default_storage.url(path)
 
-    # Process DICOM/IMA files (single or multiple) uploaded via 'dicomInput'
-    if 'dicomInput' in request.FILES:
-        dicom_files = request.FILES.getlist('dicomInput')
-        for file in dicom_files:
-            base_name = os.path.splitext(file.name)[0]
-            output_file_name = base_name + '.png'
-            output_path = os.path.join(temp_save_dir, output_file_name)
-            # Convert the DICOM file to a PNG and obtain the pydicom Dataset.
-            ds = dicom_to_png(file, output_path)
-            file_url = os.path.join(settings.MEDIA_URL, str(request.user), 'temp', output_file_name)
-            saved_files.append(file_url)
-            # Extract metadata for this file
-            patient_metadata_list.append(extract_patient_metadata(ds))
-            mri_metadata_list.append(extract_mri_metadata(ds))
+    # --- 1) plain JPEG/PNG ---
+    for field in ('imageInput',):
+        if field in request.FILES:
+            for fobj in request.FILES.getlist(field):
+                # read raw bytes
+                raw = fobj.read()
+                url = _save_to_s3(fobj.name, raw)
+                saved_files.append(url)
+                # no DICOM metadata here
+    # --- 2) single DICOM ---
+    for field in ('dicomInput','dicomDirInput'):
+        if field in request.FILES:
+            for fobj in request.FILES.getlist(field):
+                ds = pydicom.dcmread(BytesIO(fobj.read()))
+                png_bytes, ds = dicom_to_png_bytes(ds)
+                out_name = os.path.splitext(fobj.name)[0] + ".png"
+                url = _save_to_s3(out_name, png_bytes)
+                saved_files.append(url)
 
-    # Process directory of DICOM/IMA files uploaded via 'dicomDirInput'
-    if 'dicomDirInput' in request.FILES:
-        dicom_dir_files = request.FILES.getlist('dicomDirInput')
-        for file in dicom_dir_files:
-            base_name = os.path.splitext(file.name)[0]
-            output_file_name = base_name + '.png'
-            output_path = os.path.join(temp_save_dir, output_file_name)
-            ds = dicom_to_png(file, output_path)
-            file_url = os.path.join(settings.MEDIA_URL, str(request.user), 'temp', output_file_name)
-            saved_files.append(file_url)
-            # Extract metadata for this file
-            patient_metadata_list.append(extract_patient_metadata(ds))
-            mri_metadata_list.append(extract_mri_metadata(ds))
+                # metadata extractors should take the pydicom Dataset
+                patient_metadata_list.append(extract_patient_metadata(ds))
+                mri_metadata_list.append(extract_mri_metadata(ds))
 
     return Response({
         "message": "Files processed and saved successfully.",
-        "files": saved_files,
-        "patient_metadata": patient_metadata_list,
-        "mri_metadata": mri_metadata_list,
+        "files":             saved_files,
+        "patient_metadata":  patient_metadata_list,
+        "mri_metadata":      mri_metadata_list,
     })
 
 

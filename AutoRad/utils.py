@@ -9,6 +9,7 @@ import numpy as np
 import pydicom
 from PIL import Image
 from .dl.unet import UNet
+from io import BytesIO
 
 model = None
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -71,38 +72,54 @@ def one_hot_encode_masks(masks_numpy):
     return one_hot.numpy()
 
 
-def dicom_to_png(file_obj, output_path):
-    """
-    Convert a DICOM/IMA file (from a file-like object) to a PNG image
-    and save it to output_path.
-    """
-    # Read the entire file into memory
-    file_bytes = file_obj.read()
-    # Wrap bytes in a BytesIO stream so pydicom can read it.
-    f = io.BytesIO(file_bytes)
-    # Read the DICOM dataset.
-    ds = pydicom.dcmread(f)
-    # Extract pixel array from the dataset.
-    arr = ds.pixel_array
+# def dicom_to_png(file_obj, output_path):
+#     """
+#     Convert a DICOM/IMA file (from a file-like object) to a PNG image
+#     and save it to output_path.
+#     """
+#     # Read the entire file into memory
+#     file_bytes = file_obj.read()
+#     # Wrap bytes in a BytesIO stream so pydicom can read it.
+#     f = io.BytesIO(file_bytes)
+#     # Read the DICOM dataset.
+#     ds = pydicom.dcmread(f)
+#     # Extract pixel array from the dataset.
+#     arr = ds.pixel_array
+#
+#     # Normalize the array to the 0-255 range.
+#     arr = arr.astype(np.float32)
+#     min_val = np.min(arr)
+#     max_val = np.max(arr)
+#     if max_val - min_val > 0:
+#         arr = ((arr - min_val) / (max_val - min_val)) * 255.0
+#     arr = arr.astype(np.uint8)
+#
+#     # If the DICOM file has multiple frames, take the first frame.
+#     if arr.ndim > 2:
+#         arr = arr[0]
+#
+#     # Convert the numpy array to a PIL Image.
+#     img = Image.fromarray(arr)
+#     # Save the image as a PNG.
+#     img.save(output_path, format='PNG')
+#
+#     return ds
 
-    # Normalize the array to the 0-255 range.
-    arr = arr.astype(np.float32)
-    min_val = np.min(arr)
-    max_val = np.max(arr)
-    if max_val - min_val > 0:
-        arr = ((arr - min_val) / (max_val - min_val)) * 255.0
-    arr = arr.astype(np.uint8)
-
-    # If the DICOM file has multiple frames, take the first frame.
+def dicom_to_png_bytes(ds):
+    """
+    Given a pydicom Dataset, return a PNG as bytes and the Dataset itself.
+    """
+    arr = ds.pixel_array.astype(np.float32)
+    mn, mx = arr.min(), arr.max()
+    if mx > mn:
+        arr = ((arr - mn) / (mx - mn) * 255.0).astype(np.uint8)
     if arr.ndim > 2:
         arr = arr[0]
-
-    # Convert the numpy array to a PIL Image.
     img = Image.fromarray(arr)
-    # Save the image as a PNG.
-    img.save(output_path, format='PNG')
-
-    return ds
+    buf = BytesIO()
+    img.save(buf, format='PNG')
+    buf.seek(0)
+    return buf.read(), ds
 
 
 def get_mri_type(ds):

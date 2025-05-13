@@ -15,12 +15,12 @@ import dj_database_url
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Media settings
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+# MEDIA_URL = '/media/'
+# MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 LOGIN_REDIRECT_URL = '/'
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-xha5*0ih-4-9%x#8=hyd))do!7pluzi!3vs!yn3p!g6d=2yom5'
+SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-your-fallback-key")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get("DEBUG", "True") == "True"
@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'storages'
 ]
 
 MIDDLEWARE = [
@@ -111,6 +112,28 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # Use WhiteNoise to serve static files in production with compression and caching.
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# ============================
+#  S3 Configuration
+# ============================
+# Install django-storages[boto3] and set these env vars on Heroku:
+AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
+AWS_STORAGE_BUCKET_NAME = os.environ.get('AWS_STORAGE_BUCKET_NAME')
+AWS_S3_REGION_NAME = os.environ.get('AWS_S3_REGION_NAME', 'us-east-1')
+AWS_S3_SIGNATURE_VERSION = 's3v4'
+AWS_S3_FILE_OVERWRITE = False
+AWS_DEFAULT_ACL = None
+AWS_S3_ADDRESSING_STYLE = "virtual"  # bucket.s3.amazonaws.com style
+
+# Tell Django to use S3 for any uploaded media files:
+DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+
+# And point MEDIA_URL at your bucket:
+MEDIA_URL = f'https://autorad-media-cvpia.s3.amazonaws.com/'
+
+# (You can remove MEDIA_ROOT entirely now if you won’t use local media.)
+# MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
