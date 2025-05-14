@@ -1,6 +1,7 @@
 import datetime
 import json
 import os
+import gc
 from urllib.parse import unquote
 from io import BytesIO
 import cv2
@@ -464,76 +465,70 @@ def save_image(request):
         return Response({"error": "Invalid request method."}, status=405)
 
     user_str = str(request.user)
-
-    # Pull out the list of URLs (key names) they sent us
     selected_files = request.POST.getlist('selected_files')
     if not selected_files:
         return Response({"error": "No selected files provided."}, status=400)
 
-    # Pull metadata arrays
     try:
         patient_meta_list = json.loads(request.POST.get('patient_metadata', '[]'))
-        mri_meta_list = json.loads(request.POST.get('mri_metadata', '[]'))
+        mri_meta_list     = json.loads(request.POST.get('mri_metadata',    '[]'))
     except json.JSONDecodeError:
         return Response({"error": "Invalid metadata format."}, status=400)
 
-    upload_img_type = request.POST.get('imgType', 'image/png').lower()
-    uploaded_module = request.POST.get('uploaded_module', '').strip()
-    annotator_inst = request.POST.get('annotator_institution', '').strip() or request.user.institution or ''
+    upload_img_type    = request.POST.get('imgType', 'image/png').lower()
+    uploaded_module    = request.POST.get('uploaded_module', '').strip()
+    annotator_inst     = (request.POST.get('annotator_institution', '').strip()
+                          or request.user.institution or '')
 
     for idx, file_url in enumerate(selected_files):
-        # strip leading /media/ (MEDIA_URL) to get the storage key
+        # strip MEDIA_URL
         if file_url.startswith(settings.MEDIA_URL):
             temp_key = file_url[len(settings.MEDIA_URL):]
         else:
             temp_key = file_url
 
-        # make sure it exists in S3
         if not default_storage.exists(temp_key):
             continue
 
-        # read it in
+        # read & open
         with default_storage.open(temp_key, 'rb') as f:
-            img_bytes = f.read()
-
-        # load into PIL
-        try:
-            im = Image.open(BytesIO(img_bytes))
-        except Exception:
-            continue
-
-        # resize if needed
-        if im.size != (320, 320):
             try:
-                resample = Image.Resampling.LANCZOS
-            except AttributeError:
-                resample = Image.LANCZOS
-            im = im.resize((320, 320), resample)
+                im = Image.open(f)
+            except Exception:
+                continue
 
-        # enforce grayscale
-        im = im.convert('L')
+            # resize if needed
+            if im.size != (320, 320):
+                try:
+                    resample = Image.Resampling.LANCZOS
+                except AttributeError:
+                    resample = Image.LANCZOS
+                im = im.resize((320, 320), resample)
 
-        # write back out to a buffer
-        out_buffer = BytesIO()
-        im.save(out_buffer, format='PNG')
-        out_buffer.seek(0)
+            # grayscale
+            im = im.convert('L')
 
-        # define a key under <user>/images/...
+            # save into buffer
+            buf = BytesIO()
+            im.save(buf, format='PNG')
+            buf.seek(0)
+            im.close()
+
+        # write back to S3
         new_filename = temp_key.rsplit('/', 1)[-1]
-        dest_key = f"{user_str}/images/{new_filename}"
+        dest_key     = f"{user_str}/images/{new_filename}"
+        default_storage.save(dest_key, ContentFile(buf.read()))
+        buf.close()
 
-        # save into S3
-        default_storage.save(dest_key, ContentFile(out_buffer.read()))
-
-        # optionally remove the temp file
+        # remove temp
         default_storage.delete(temp_key)
 
-        # now build or lookup your Patient record, as before...
+        # metadata lookup
         if upload_img_type in ('dicom', 'ima'):
-            current_patient_meta = patient_meta_list[idx] if idx < len(patient_meta_list) else {}
-            current_mri_meta = mri_meta_list[idx] if idx < len(mri_meta_list) else {}
+            pm = patient_meta_list[idx] if idx < len(patient_meta_list) else {}
+            mm = mri_meta_list[idx]     if idx < len(mri_meta_list)     else {}
 
-            ext_pid = current_patient_meta.get('patient_id', '').strip()
+            ext_pid = pm.get('patient_id','').strip()
             if ext_pid:
                 patient_obj = Patient.objects.filter(
                     id_from_inst=ext_pid, user=request.user
@@ -541,50 +536,52 @@ def save_image(request):
                 if not patient_obj:
                     patient_obj = Patient.objects.create(
                         id_from_inst=ext_pid,
-                        age=current_patient_meta.get('age', ''),
-                        weight=current_patient_meta.get('weight', None),
-                        height=current_patient_meta.get('height', None),
-                        sex=current_patient_meta.get('sex', ''),
+                        age=pm.get('age',''),
+                        weight=pm.get('weight',None),
+                        height=pm.get('height',None),
+                        sex=pm.get('sex',''),
                         user=request.user,
-                        from_module=current_patient_meta.get('from_module', '')
+                        from_module=pm.get('from_module','')
                     )
             else:
                 patient_obj, _ = Patient.objects.get_or_create(
                     id_from_inst="N/A", user=request.user,
-                    defaults={'age': '', 'weight': None, 'height': None, 'sex': ''}
+                    defaults={'age':'','weight':None,'height':None,'sex':''}
                 )
         else:
             patient_obj = None
-            current_mri_meta = {}
+            mm = {}
 
-        # Create the MRI record
-        mriDB = MRI(
+        # store MRI row
+        MRI.objects.create(
             filename=new_filename,
-            filetype=request.POST.get('imgType', 'image/png'),
+            filetype=request.POST.get('imgType','image/png'),
             width=320, height=320,
             user=request.user,
-            path=dest_key,  # Django will store this key on the S3Field
-            modality=current_mri_meta.get('modality', ''),
-            manufacturer=current_mri_meta.get('manufacturer', ''),
-            pixel_spacing=current_mri_meta.get('pixel_spacing', ''),
-            protocol_name=current_mri_meta.get('protocol_name', ''),
-            mri_type=current_mri_meta.get('mri_type', ''),
-            orientation=current_mri_meta.get('orientation', ''),
-            repetition_time=current_mri_meta.get('repetition_time', ''),
-            echo_time=current_mri_meta.get('echo_time', ''),
-            inversion_time=current_mri_meta.get('inversion_time', ''),
-            flip_angle=current_mri_meta.get('flip_angle', ''),
-            magnetic_field_strength=current_mri_meta.get('magnetic_field_strength', ''),
-            acquisition_matrix=current_mri_meta.get('acquisition_matrix', ''),
-            pixel_bandwidth=current_mri_meta.get('pixel_bandwidth', ''),
-            fov=current_mri_meta.get('fov', ''),
+            path=dest_key,
+            modality=mm.get('modality',''),
+            manufacturer=mm.get('manufacturer',''),
+            pixel_spacing=mm.get('pixel_spacing',''),
+            protocol_name=mm.get('protocol_name',''),
+            mri_type=mm.get('mri_type',''),
+            orientation=mm.get('orientation',''),
+            repetition_time=mm.get('repetition_time',''),
+            echo_time=mm.get('echo_time',''),
+            inversion_time=mm.get('inversion_time',''),
+            flip_angle=mm.get('flip_angle',''),
+            magnetic_field_strength=mm.get('magnetic_field_strength',''),
+            acquisition_matrix=mm.get('acquisition_matrix',''),
+            pixel_bandwidth=mm.get('pixel_bandwidth',''),
+            fov=mm.get('fov',''),
             module=uploaded_module,
             annotator_inst=annotator_inst,
             Patient=patient_obj
         )
-        mriDB.save()
 
-    # once done, redirect home
+        # free up memory
+        del im, buf
+        gc.collect()
+
     return redirect('/')
 
 
