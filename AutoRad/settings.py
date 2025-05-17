@@ -10,9 +10,13 @@ https://docs.djangoproject.com/en/4.1/ref/settings/
 import os
 from pathlib import Path
 import dj_database_url
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# read .env into os.environ
+load_dotenv(BASE_DIR / '.env')
 
 # Media settings
 # MEDIA_URL = '/media/'
@@ -23,7 +27,7 @@ LOGIN_REDIRECT_URL = '/'
 SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-your-fallback-key")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get("DEBUG", "True") == "True"
+DEBUG = True
 
 # In production, update ALLOWED_HOSTS with your Heroku app's domain.
 ALLOWED_HOSTS = ['autorad.herokuapp.com', 'autorad-b306bd6f90e4.herokuapp.com', 'localhost', '127.0.0.1']
@@ -116,15 +120,15 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 # ============================
 #  S3 Configuration
 # ============================
-# Install django-storages[boto3] and set these env vars on Heroku:
-AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
-AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
-AWS_STORAGE_BUCKET_NAME = os.environ.get('AWS_STORAGE_BUCKET_NAME')
-AWS_S3_REGION_NAME = os.environ.get('AWS_S3_REGION_NAME', 'us-east-1')
+# now these will be populated locally
+AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
+AWS_STORAGE_BUCKET_NAME = os.getenv('AWS_STORAGE_BUCKET_NAME')
+AWS_S3_REGION_NAME = os.getenv('AWS_S3_REGION_NAME', 'us‑east‑1')
 AWS_S3_SIGNATURE_VERSION = 's3v4'
 AWS_S3_FILE_OVERWRITE = False
 AWS_DEFAULT_ACL = None
-AWS_S3_ADDRESSING_STYLE = "virtual"  # bucket.s3.amazonaws.com style
+AWS_S3_ADDRESSING_STYLE = 'virtual'
 
 # Tell Django to use S3 for any uploaded media files:
 DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'

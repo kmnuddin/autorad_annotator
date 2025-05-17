@@ -443,11 +443,64 @@
 
             // Wait a short while (e.g., 500ms) to allow the AJAX call to complete,
             // then overlay the masks and create options.
-            setTimeout(function() {
-                plotAllMasks();
-                createOptionsMask();
-            }, 500);
+            {#setTimeout(function() {#}
+            {#    plotAllMasks();#}
+            {#    createOptionsMask();#}
+            {#, 500);#}
+            {##}
         });
+    }
+    function extractMasks() {
+
+        var mri_path = document.getElementById('imagePlaceholder1').src;
+        var mask_path = document.getElementById('imagePlaceholder2').src;
+        var data = JSON.stringify({'mask_url': mask_path, 'mask_id': curMaskID});
+        var csrftoken = getCSRFToken();
+
+        var imgExistBln = false;    // added
+
+        // Get the original image for DB updates
+        [imgExistBln,curImageID] = getImgID(curUserID,mri_path) // added
+
+        // Only fetch contours if it's a newly‐built image
+        if (!imgExistBln) {
+            console.log(imgExistBln, curImageID);
+            $.ajax({
+                type: 'POST',
+                url: '/api/get-control-points/',
+                data: data,
+                dataType: 'json',
+                contentType: 'application/json',
+                beforeSend: function (xhr) {
+                    if (csrftoken) {
+                        xhr.setRequestHeader("X-CSRFToken", csrftoken);
+                    }
+                },
+                success: function (response) {
+                    var contours = response.cls_cnt;
+                    Object.keys(contours).forEach(function (cls) {
+                        contours[cls].forEach(function (contour) {
+                            var points = contour.map(function (pointWrapper) {
+                                var point = pointWrapper[0];
+                                return { x: point[0], y: point[1] };
+                            });
+                            masksToImgDB(curUserID, curImageID, cls, points);
+                        });
+                    });
+                     // **only now** overlay the masks and build the UI
+                    plotAllMasks();
+                    createOptionsMask();
+                },
+                error: function (xhr, status, error) {
+                    console.error(
+                        'Failed to get control points:',
+                        'Status:', status,
+                        'Error:', error,
+                        'Response:', xhr.responseText
+                    );
+                }
+            });
+        }
     }
 
 

@@ -1,7 +1,7 @@
-import os
-from django.conf import settings
+from django.core.files.storage import default_storage
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
+
 from .models import MRI, UNetMask, UNetMaskStructure
 
 
@@ -21,23 +21,18 @@ def delete_unetmask_files(sender, instance, **kwargs):
     """
     Deletes the mask image and mask npy file for a UNetMask instance.
     """
-    # Delete the mask image from storage.
+
+    # 1) delete the PNG via its FileField:
     if instance.mask_img_path:
         instance.mask_img_path.delete(save=False)
-        print(f"Deleted UNetMask image file: {instance.mask_img_path}")
+        print(f"Deleted UNetMask image file: {instance.mask_img_path.name}")
 
-    # For the mask_npy_path, which is a CharField storing a path,
-    # we construct the full path and delete the file if it exists.
-    mask_npy_path = instance.mask_npy_path
-    if mask_npy_path:
-        # If the stored path is relative (e.g. 'example_mask.npy' or 'media/example_mask.npy'),
-        # construct the full path relative to MEDIA_ROOT.
-        full_path = mask_npy_path
-        if not os.path.isabs(full_path):
-            full_path = os.path.join(settings.MEDIA_ROOT, mask_npy_path)
-        if os.path.exists(full_path):
-            os.remove(full_path)
-            print(f"Deleted UNetMask npy file: {full_path}")
+    # 2) delete the .npy via the S3 storage backend
+    npy_key = instance.mask_npy_path  # this is the S3 key you saved earlier
+    if npy_key:
+        if default_storage.exists(npy_key):
+            default_storage.delete(npy_key)
+            print(f"Deleted UNetMask npy file from storage: {npy_key}")
 
 
 @receiver(post_delete, sender=UNetMaskStructure)
