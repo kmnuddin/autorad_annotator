@@ -66,40 +66,93 @@
                         <tr>
                             <th>MRI Id</th>
                             <th>Uploaded By</th>
-                            <th>File</th>
+                            <th>Patient ID</th>
                             <th>Image</th>
                             <th>Created at</th>
                             <th>Modified at</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for img in images %}
-                        <tr>
-                            <td>{{ img.id }}</td>
-                            <td>
-                                {% if img.user.first_name or img.user.last_name %}
-                                    {{ img.user.first_name }} {{ img.user.last_name }}
-                                {% else %}
-                                    {{ img.user.username }}
-                                {% endif %}
-                                {% if img.user.institution %}
-                                    ({{ img.user.institution }})
-                                {% endif %}
-                            </td>
-                            <td> {{ img.filename }}</td>
-                            <td>
-                                {% if img.path %}
-                                    <img width="320" height="320" src="{{ img.path.url }}" alt="">
-                                {% else %}
-                                    No Image!
-                                {% endif %}
-                            </td>
-                            <td>{{ img.created_at }}</td>
-                            <td>{{ img.modified_at }}</td>
-                            <td> <a class="btn btn-success badge" onclick="loadAndProcessThisImg('{{img.id}}')"> {{ img.module }} </a></td>
-                            <td> <a class="btn btn-secondary badge" href="{% url 'delete' img.id %}"> delete </a></td>
-                        </tr>
-                        {% endfor %}
+                    {% for img in images %}
+                      <tr>
+                        <td>{{ img.id }}</td>
+                        <td>
+                          {% if img.user.first_name or img.user.last_name %}
+                            {{ img.user.first_name }} {{ img.user.last_name }}
+                          {% else %}
+                            {{ img.user.username }}
+                          {% endif %}
+                          {% if img.user.institution %} ({{ img.user.institution }}){% endif %}
+                        </td>
+                        {# Patient ID cell #}
+                        <td>
+                          {% if img.Patient %}
+                            {{ img.Patient.id }}
+                          {% else %}
+                            N/A
+                          {% endif %}
+                        </td>
+
+                        {# image cell #}
+                        <td>
+                          {% if img.module == 'assessment_reporting' and img.Patient %}
+                            {# get all MRIs for this patient, sorted by created_at #}
+                            {% with patient_mris=img.Patient.mri_set.all|dictsort:"created_at" %}
+                              {# take up to the first 4 items #}
+                              {% with display_mris=patient_mris|slice:":4" %}
+                                <div class="row gx-1 gy-1" style="width:320px;">
+                                  {% for m in display_mris %}
+                                    <div class="col-6">
+                                      {% if m.path %}
+                                        <img src="{{ m.path.url }}"
+                                             class="img-fluid"
+                                             style="width:100%; height:auto;">
+                                      {% else %}
+                                        <div class="text-muted small text-center">
+                                          No Image
+                                        </div>
+                                      {% endif %}
+                                    </div>
+                                  {% endfor %}
+                                </div>
+                              {% endwith %}
+                            {% endwith %}
+                          {% else %}
+                            {# segmentation or anything else just shows the single image #}
+                            {% if img.path %}
+                              <img width="320" height="320" src="{{ img.path.url }}" alt="">
+                            {% else %}
+                              No Image!
+                            {% endif %}
+                          {% endif %}
+                        </td>
+
+                        <td>{{ img.created_at }}</td>
+                        <td>{{ img.modified_at }}</td>
+
+                        {# load button #}
+                        <td>
+                          {% if img.module == 'assessment_reporting' and img.Patient %}
+                            <a class="btn btn-success badge"
+                               href="{% url 'assessment' img.Patient.id %}">
+                              {{ img.module|capfirst }}
+                            </a>
+                          {% else %}
+                            <a class="btn btn-success badge"
+                               onclick="loadAndProcessThisImg('{{ img.id }}')">
+                              {{ img.module|capfirst }}
+                            </a>
+                          {% endif %}
+                        </td>
+
+                        <td>
+                          <a class="btn btn-secondary badge"
+                             href="{% url 'delete' img.id %}">
+                            delete
+                          </a>
+                        </td>
+                      </tr>
+                    {% endfor %}
                     </tbody>
                 </table>
             </div>
@@ -1089,9 +1142,6 @@
     replicateObjectsOnly(canvas1, canvas2); // Initial replication to sync any pre-existing objects
     syncCanvases(canvas1, canvas2);
 </script>
-
-
-</div>
 
 
 {% endblock %}

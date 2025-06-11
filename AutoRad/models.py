@@ -46,19 +46,10 @@ class Patient(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_DEFAULT, default="-1")
 
     from_module = models.CharField(max_length=50, choices=MODULES, blank=True, null=True)
+
+    annotator_inst = models.CharField(max_length=100, blank=True, null=True)
     def __str__(self):
         return self.id_from_inst
-
-
-class Report(models.Model):
-    reportName = models.CharField(max_length=200, default="")
-    reprotID = models.CharField(max_length=100, default="1")
-    reportContent = models.CharField(max_length=200, default="")
-
-    # patientID = models.ForeignKey(patientClass,on_delete=models.CASCADE,default="000000000000")
-
-    # reportID = models.ForeignKey(reportClass,on_delete=models.CASCADE,default="1")
-
 
 class MRI(models.Model):
     filename = models.CharField(max_length=200, default="example_image.png")
@@ -79,6 +70,15 @@ class MRI(models.Model):
     # New fields for MRI type and orientation:
     mri_type = models.CharField(max_length=20, blank=True, null=True)  # e.g., T1, T2, etc.
     orientation = models.CharField(max_length=20, blank=True, null=True)
+
+    LUMBAR_LEVEL_CHOICES = [
+        ('L1-L2', 'L1-L2'),
+        ('L2-L3', 'L2-L3'),
+        ('L3-L4', 'L3-L4'),
+        ('L4-L5', 'L4-L5'),
+        ('L5-S1', 'L5-S1'),
+    ]
+    lumbar_level = models.CharField(max_length=50, choices=LUMBAR_LEVEL_CHOICES, blank=True, null=True)
 
     Patient = models.ForeignKey(Patient, on_delete=models.SET_DEFAULT, default="-1", null=True, blank=True)
 
@@ -139,3 +139,21 @@ class UNetMaskStructure(models.Model):
     height = models.IntegerField(default=320)
 
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+class Assessment_Comments(models.Model):
+    Patient = models.ForeignKey(Patient, on_delete=models.SET_DEFAULT, default="-1")
+    MRI = models.ForeignKey(MRI, on_delete=models.SET_DEFAULT, default="-1")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_DEFAULT, default="-1")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    # box coords, stored *normalized* 0.0–1.0, so you never have to worry about
+    # different resolutions later
+    x = models.FloatField(help_text="Left coordinate, normalized [0–1]")
+    y = models.FloatField(help_text="Top coordinate, normalized [0–1]")
+    width = models.FloatField(help_text="Width, normalized [0–1]")
+    height = models.FloatField(help_text="Height, normalized [0–1]")
+
+    comment = models.TextField(blank=True)
+    tag = models.CharField(max_length=200, default="")

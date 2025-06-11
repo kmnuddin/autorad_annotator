@@ -1,0 +1,783 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Assessment{% endblock %}
+
+{% block content %}
+{% comment %} <script type="text/javascript" src="./static/require.js"></script> {% endcomment %}
+<script src="{% static 'jscript.js' %}"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/4.3.1/fabric.min.js"></script>
+<link
+  rel="stylesheet"
+  href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css"
+/>
+<style>
+.selectable-mri {
+  cursor: pointer;
+  transition: border 0.2s ease;
+}
+.selectable-mri.selected {
+  border: 3px solid #007bff;
+}
+
+ /* put this in your page <head> or a CSS file */
+.canvas-wrapper {
+    position: relative;
+    display: inline-block;
+    width: 600px;
+    height: 600px;
+}
+.canvas-toolbar {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 10;
+    display: flex;
+    gap: .5rem;
+}
+
+/* on hover, turn the icon blue */
+.canvas-toolbar .btn:hover .bi {
+  color: #0d6efd; /* bootstrap primary blue */
+}
+.annotation-badge {
+  pointer-events: none;
+  padding: 0.25em 0.5em;
+  font-size: 0.75rem;
+  border-radius: 0.25rem;
+  color: #fff;
+}
+.annotation-badge.annotated  { background: #dc3545; } /* warning */
+.annotation-badge.normal { background: #5d9e5e; } /* danger */
+#orientationBadge {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  padding: 0.2rem 0.4rem;
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+  display: none;
+  z-index: 1000;
+}
+#globalLevelContainer {
+  display: none; /* we will un-hide it in JS for axial or box-selection */
+}
+
+
+</style>
+
+<div class="container-fluid mt-4">
+  <div class="row">
+    <!-- LEFT COLUMN: 8/12 -->
+    <div class="col-md-8">
+      <!-- Canvas + toolbar -->
+      <div class="text-center mb-4">
+        <div class="canvas-wrapper">
+          <canvas id="fabricCanvas" width="600" height="600" style="border:1px solid #ccc;"></canvas>
+          <div id="orientationBadge"></div>
+          <div class="canvas-toolbar">
+            <button id="btn-zoom-in" class="btn bg-transparent border-0 text-white p-1">
+                <i class="bi bi-zoom-in fs-4"></i>
+            </button>
+            <button id="btn-zoom-out" class="btn bg-transparent border-0 text-white p-1">
+                <i class="bi bi-zoom-out fs-4"></i>
+            </button>
+            <button id="btn-reset-zoom" class="btn bg-transparent border-0 text-white p-1">
+                <i class="bi bi-arrows-angle-contract fs-4"></i>
+            </button>
+            <button id="btn-toggle-draw" class="btn bg-transparent border-0 text-white p-1">
+                <i id="icon-toggle-draw" class="bi bi-pencil-square fs-4"></i>
+            </button>
+          </div>
+          <div id="commentPanel"
+             style="position:absolute;
+                    background:rgba(255,255,255,0.45); padding:8px;
+                    border-radius:4px; display:none; z-index:1000;">
+              <label for="boxComment">Comment:</label><br>
+              <span id="commentLevelBadge" class="badge bg-secondary" style="position:absolute; top:4px; left:4px;display:none;"></span>
+              <textarea id="boxComment" rows="3" style="width:180px;background:rgba(255,255,255,0.7);border:1px solid #ccc;resize:vertical;"></textarea><br>
+              <button id="saveCommentBtn" class="btn btn-sm btn-primary">Save</button>
+          </div>
+        </div>
+      </div>
+    <!-- MRI image grid -->
+      <div class="row" id="patientMriGrid">
+          {% for mri in patient_mris %}
+            <div class="col-6 col-sm-4 mb-3">
+              <div class="position-relative thumbnail-wrapper" data-id="{{ mri.id }}">
+                <img src="{{ mri.path.url }}"
+                     data-id="{{ mri.id }}"
+                     data-orientation="{{ mri.orientation|default:"unknown" }}"
+                     class="img-fluid selectable-mri"
+                     alt="MRI {{ forloop.counter }}" />
+                <!-- we'll fill this in with JS -->
+                <span class="annotation-badge position-absolute top-0 end-0 m-1"></span>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+    </div>
+    <!-- RIGHT COLUMN: 4/12 -->
+    <div class="col-md-2">
+      <form>
+        <!-- Lumbar Level + Normal -->
+        <div class="mb-4">
+          <div id="globalLevelContainer">
+              <!-- Lumbar level -->
+              <label for="lumbarSelect" class="form-label me-2">Intervertebral level</label>
+              <select id="lumbarSelect"
+                      class="form-select d-inline-block w-auto me-4">
+                <option value="">None</option>
+                <option value="L1-L2">L1-L2</option>
+                <option value="L2-L3">L2-L3</option>
+                <option value="L3-L4">L3-L4</option>
+                <option value="L4-L5">L4-L5</option>
+                <option value="L5-S1">L5-S1</option>
+              </select>
+          </div>
+          <!-- Normal checkbox -->
+          <div class="form-check d-inline-block ms-4">
+            <input class="form-check-input"
+                   type="checkbox"
+                   id="normalCheck"
+                   style="vertical-align: middle;">
+            <label class="form-check-label ms-1"
+                   for="normalCheck">Normal</label>
+          </div>
+        </div>
+        <hr>
+        <div id="tagBadges" class="mb-3">
+            <!-- JS will append <span class="badge bg-primary me-1">…</span> here -->
+        </div>
+        <hr>
+        <div>
+           <button type="button" id="compileCommentBtn" class="btn btn-info">
+            Compile Comments
+          </button>
+        </div>
+        <hr>
+        <!-- Clinician’s Notes -->
+        <div class="mb-3">
+          <label for="clinicianNotes" class="form-label">Clinician’s Notes</label>
+          <textarea class="form-control" id="clinicianNotes" rows="5" placeholder="Enter report…"></textarea>
+        </div>
+
+        <!-- Import button -->
+        <div class="mb-4">
+          <button type="button" id="importReportBtn" class="btn btn-secondary">
+            Import Report / Note
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<script>
+  // ——— 0) init Fabric + globals ———
+  const canvas = new fabric.Canvas('fabricCanvas', { selection: false });
+  const normalCheck = document.getElementById('normalCheck')
+  const commentLevelBadge = document.getElementById('commentLevelBadge');
+  const clinicianNotesTextarea = document.getElementById('clinicianNotes');
+  let currentMriId   = null;
+  let drawEnabled    = false;
+  let isDrawing      = false;
+  let startX, startY, box;
+
+  // registry of boxes per-MRI
+  const drawnBoxes = {};   // { mriId: [ {left,top,width,height}, … ] }
+   // Remember:
+  //  • For axial MRIs → a single level per MRI
+  //  • For sagittal/coronal → each bounding box gets its own level.
+  const mriLevels = {};
+
+    // The currently selected rectangle (if any)
+  let activeRect = null;
+
+  // “Global” Lumbar‐Level dropdown (wrapped in #globalLevelContainer)
+  const globalLevelContainer = document.getElementById('globalLevelContainer');
+  const globalLevelSelect = document.getElementById('lumbarSelect');
+
+  // ——— 1) helper: save all rects on canvas into drawnBoxes[currentMriId] ———
+  function saveBoxesForCurrent() {
+    if (!currentMriId) return;
+    drawnBoxes[currentMriId] = canvas.getObjects('rect').map(r => ({
+      uid:     r.uid,
+      left:   r.left,
+      top:    r.top,
+      width:  r.width  * r.scaleX,
+      height: r.height * r.scaleY,
+      comment: r.comment || "",
+      tag:     r.tag || "",
+      level:   r.level || ""
+    }));
+  }
+
+  // ——— 2) helper: redraw boxes for a given MRI id ———
+  function redrawBoxesFor(mriId) {
+    const arr = drawnBoxes[mriId] || [];
+    arr.forEach(cfg => {
+      const r = new fabric.Rect({
+        left:   cfg.left,
+        top:    cfg.top,
+        width:  cfg.width,
+        height: cfg.height,
+        fill:   'transparent',
+        stroke: 'red',
+        strokeWidth: 2,
+        selectable: true,
+        level: cfg.level
+      });
+      r.uid     = cfg.uid;
+      r.comment = cfg.comment;    // restore
+      r.tag     = cfg.tag || "";
+      canvas.add(r);
+    });
+  }
+
+  // ——— 3) grid clicks → switchToMri ———
+  document.querySelectorAll('.selectable-mri').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const id  = el.dataset.id;
+      const src = el.src;
+      const ori   = el.dataset.orientation; // e.g. "axial" or "sagittal"
+
+      // save old boxes into drawnBoxes
+      saveBoxesForCurrent();
+
+      // clear canvas & load new background
+      canvas.clear();
+      fabric.Image.fromURL(src, function(img) {
+        canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
+          scaleX: canvas.width  / img.width,
+          scaleY: canvas.height / img.height
+        });
+        // restore boxes, badges, etc.
+        currentMriId = id;
+        currentOrientation = ori;
+        redrawBoxesFor(id);
+        refreshBadges();
+        canvas.renderAll();
+
+        const hasBoxes = Array.isArray(drawnBoxes[id]) && drawnBoxes[id].length > 0;
+        normalCheck.checked = !hasBoxes;
+
+        const orientation = el.dataset.orientation || "unknown";
+        const orientBadge = document.getElementById('orientationBadge');
+        orientBadge.textContent = orientation.charAt(0).toUpperCase() + orientation.slice(1);
+        orientBadge.style.display = 'block';
+
+         // 4) Show/hide the global lumbar select for this MRI
+        if (ori === "axial") {
+          // Always show the global dropdown for axial:
+          globalLevelContainer.style.display = "block";
+          globalLevelSelect.value = mriLevels[id] || "";
+        }
+        else {
+          // Hide it until you click a box for sagittal/coronal
+          globalLevelContainer.style.display = "none";
+        }
+      });
+
+      // update selection UI
+      document.querySelectorAll('.selectable-mri').forEach(i=>i.classList.remove('selected'));
+      el.classList.add('selected');
+    });
+  });
+  // auto-select first
+  const first = document.querySelector('.selectable-mri');
+  if (first) first.click();
+
+  // ——— 4) zoom on wheel & dblclick reset ———
+  canvas.on('mouse:wheel', opt=>{
+    const delta = opt.e.deltaY;
+    let zoom = canvas.getZoom() * (delta>0?0.9:1.1);
+    zoom = Math.max(0.5, Math.min(4, zoom));
+    canvas.zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, zoom);
+    opt.e.preventDefault(); opt.e.stopPropagation();
+  });
+  canvas.on('mouse:dblclick', ()=> canvas.zoomToPoint({ x:0,y:0 }, 1));
+
+  // ——— 5) box-drawing mode handlers ———
+  function toggleBoxDrawing(on) {
+      drawEnabled = on;
+
+      if (on) {
+        canvas.discardActiveObject();
+      }
+      canvas.selection = !on;
+      canvas.forEachObject(o => o.selectable = !on);
+
+      // sync icon
+      if (on) {
+        toggleIcon.classList.replace('bi-pencil-square','bi-pencil-fill');
+      } else {
+        toggleIcon.classList.replace('bi-pencil-fill','bi-pencil-square');
+      }
+    }
+
+  window.addEventListener('mouseup', () => {
+    isDrawing = false;
+    box       = null;
+  });
+
+  canvas.on('mouse:down', o => {
+    if (!drawEnabled) return;
+    isDrawing = true;
+    const p = canvas.getPointer(o.e);
+    startX = p.x; startY = p.y;
+
+    //  Nov 2025: read the chosen level from the global select if orientation is not axial,
+    //  or from mriLevels if orientation=“axial”.
+    let chosenLevel = "";
+    if (currentOrientation === "axial") {
+      chosenLevel = mriLevels[currentMriId] || "";
+    }
+    else {
+      // In sagittal/coronal mode, the box-level defaults to whatever is in the
+      // global select (which should already be shown when we clicked “Draw”)
+      chosenLevel = globalLevelSelect.value || "";
+    }
+
+
+    box = new fabric.Rect({
+      left:   startX,
+      top:    startY,
+      width:  0,
+      height: 0,
+      fill:   'transparent',
+      stroke: 'red',
+      strokeWidth: 2,
+      hasRotatingPoint: false,
+      lockRotation: true,
+      level: chosenLevel,
+      tag: ""
+    });
+    // give it a quick unique ID—in this example, a timestamp + random number:
+    box.uid = Date.now().toString() + Math.floor(Math.random() * 1000);
+    canvas.add(box);
+  });
+
+  canvas.on('mouse:move', o => {
+    if (!isDrawing || !box) return;
+    const p = canvas.getPointer(o.e);
+    box.set({
+      left:   Math.min(startX, p.x),
+      top:    Math.min(startY, p.y),
+      width:  Math.abs(p.x - startX),
+      height: Math.abs(p.y - startY)
+    });
+    canvas.requestRenderAll();
+  });
+
+  canvas.on('mouse:up', ()=>{
+    if (drawEnabled && box) {
+        // finish this box
+        isDrawing = false;
+        // make it selectable & active
+        box.selectable = true;
+        canvas.setActiveObject ( box );
+
+        // save & exit draw mode
+        saveBoxesForCurrent ();
+        toggleBoxDrawing ( false );
+
+        normalCheck.checked = false;
+
+        // ensure we actually see the selection styling
+        canvas.requestRenderAll ();
+        }
+        box = null;
+    });
+  // escape key
+  document.addEventListener('keydown', e=>{
+    if (e.key === 'Escape') {
+      if (drawEnabled) {
+        toggleBoxDrawing(false);
+      }
+      canvas.discardActiveObject();
+      canvas.renderAll();
+    }
+  });
+
+  // ——— 6) toolbar buttons ———
+  document.getElementById('btn-zoom-in' ).addEventListener('click', ()=>{
+    let z = canvas.getZoom()*1.1;
+    canvas.zoomToPoint({ x: canvas.width/2, y: canvas.height/2 }, Math.min(z,4));
+  });
+  document.getElementById('btn-zoom-out').addEventListener('click', ()=>{
+    let z = canvas.getZoom()*0.9;
+    canvas.zoomToPoint({ x: canvas.width/2, y: canvas.height/2 }, Math.max(z,0.5));
+  });
+  document.getElementById('btn-reset-zoom').addEventListener('click', ()=>{
+     // reset zoom level
+      canvas.setZoom(1);
+
+      // reset pan/translation
+      canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
+
+      canvas.renderAll();
+  });
+  const toggleBtn  = document.getElementById('btn-toggle-draw'),
+        toggleIcon = document.getElementById('icon-toggle-draw');
+
+  toggleBtn.addEventListener('click', ()=>{
+    toggleBoxDrawing(!drawEnabled);
+  });
+
+  function refreshBadges() {
+      document
+        .querySelectorAll('.thumbnail-wrapper')
+        .forEach(wrapper => {
+          const id = wrapper.dataset.id;
+          const span = wrapper.querySelector('.annotation-badge');
+          const has = Array.isArray(drawnBoxes[id]) && drawnBoxes[id].length > 0;
+          span.textContent = has ? 'Annotated' : 'Normal';
+          span.classList.toggle('annotated', has);
+          span.classList.toggle('normal', !has);
+        });
+    }
+
+    // ——— 7) watch Normal checkbox ———
+  normalCheck.addEventListener('change', () => {
+    if (normalCheck.checked) {
+      const boxes = drawnBoxes[currentMriId] || [];
+      if (boxes.length) {
+        if (window.confirm(
+          "This will delete ALL your annotations for this image. Continue?"
+        )) {
+          // clear them out
+          canvas.getObjects('rect').forEach(r => canvas.remove(r));
+          canvas.discardActiveObject();
+          commentPanel.style.display = 'none';
+          delete drawnBoxes[currentMriId];
+          saveBoxesForCurrent();
+          refreshBadges();
+          canvas.renderAll();
+        } else {
+          // revert the check if they cancel
+          normalCheck.checked = false;
+        }
+      }
+    }
+  });
+
+
+    // get a reference to the wrapper
+    const wrapper      = document.getElementById('canvasWrapper');
+    const commentPanel = document.getElementById('commentPanel');
+    const textarea     = document.getElementById('boxComment');
+    const saveBtn      = document.getElementById('saveCommentBtn');
+
+    canvas.on('selection:created',  showCommentFor);
+    canvas.on('selection:updated',  showCommentFor);
+    canvas.on('selection:cleared',  () => commentPanel.style.display = 'none');
+
+    function showCommentFor(e) {
+      const obj = Array.isArray(e.selected) && e.selected[0];
+      if (obj && obj.type === 'rect') {
+
+        activeRect = obj;
+
+        textarea.value = obj.comment || "";
+
+        // position the panel below the box…
+        const bb = obj.getBoundingRect();
+        commentPanel.style.left    = bb.left + "px";
+        commentPanel.style.top     = (bb.top + bb.height + 4) + "px";
+        commentPanel.style.display = "block";
+
+        // 3) If orientation is sagittal/coronal, show the badge & global select:
+        if (currentOrientation !== "axial") {
+            // Show global select:
+            globalLevelContainer.style.display = "block";
+            globalLevelSelect.value = obj.level || "";
+
+            // Show or hide the level badge inside the comment panel:
+            if (obj.level) {
+              commentLevelBadge.textContent = obj.level;
+              commentLevelBadge.style.display = "block";
+            } else {
+              commentLevelBadge.style.display = "none";
+            }
+        }
+        else {
+            // If it’s axial, no per‐box badge:
+            commentLevelBadge.style.display = "none";
+        }
+
+        saveBtn.onclick = () => {
+          const txt = textarea.value.trim();
+          if (!obj) return;
+          let levelToSend = "";
+
+          // If it’s axial → we only have one “level per MRI”
+          if (currentOrientation === "axial") {
+            levelToSend = mriLevels[currentMriId] || "";
+          }
+          // Else → one “level per box”
+          else if (obj) {
+            levelToSend = obj.level || "";
+          }
+
+          // 1) If the comment text didn't change AND we already have a tag → re‑display it:
+          if (obj.comment === txt && obj.tag) {
+            showTagBadgeForRect(obj.uid, obj.tag);
+            return;
+          }
+
+          // Otherwise, update obj.comment & obj.level (from the global select)
+          obj.comment = txt;
+          obj.tag = "";
+          if (currentOrientation !== "axial" && obj) {
+              obj.level = globalLevelSelect.value;
+              // Refresh the little badge in the panel:
+              if (obj.level) {
+                commentLevelBadge.textContent = obj.level;
+                commentLevelBadge.style.display = "block";
+              } else {
+                commentLevelBadge.style.display = "none";
+              }
+          }
+          saveBoxesForCurrent();     // serialize to drawnBoxes[currentMriId]
+
+          fetch("/api/generate-tag/", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRFToken": getCSRFToken()
+            },
+            body: JSON.stringify({ comment: txt , level: levelToSend})
+          })
+          .then(resp => resp.json())
+          .then(data => {
+            if (data.tag) {
+              obj.tag = data.tag;
+              saveBoxesForCurrent();
+              showTagBadgeForRect(obj.uid, data.tag);
+            }
+          })
+          .catch(err => {
+            console.error("Tag generation failed:", err);
+          });
+        };
+
+      } else {
+        commentPanel.style.display = "none";
+      }
+    }
+
+        // ————————————
+      // 10) If the user changes the global lumbar select, propagate into our model
+      // ————————————
+      globalLevelSelect.addEventListener('change', () => {
+        const val = globalLevelSelect.value;
+
+        if (currentOrientation === "axial") {
+          // “One level per MRI” mode:
+          mriLevels[currentMriId] = val;
+        }
+        else if (activeRect) {
+          // “One level per box” mode:
+          activeRect.level = val;
+
+          // Update the badge in the comment panel
+          if (val) {
+            commentLevelBadge.textContent = val;
+            commentLevelBadge.style.display = "block";
+          } else {
+            commentLevelBadge.style.display = "none";
+          }
+          saveBoxesForCurrent();
+        }
+      });
+
+     /**
+     * Show or update exactly one badge for the rectangle whose UID is `rectUid`.
+     * If a badge with data-rect-uid=rectUid already exists, just update its text.
+     * Otherwise, append a new badge with that data-rect-uid.
+     */
+    function showTagBadgeForRect(rectUid, tag) {
+      const container = document.getElementById("tagBadges");
+
+      // 1) Try to find an existing badge for this rectUid:
+      let existing = container.querySelector(`span[data-rect-uid="${rectUid}"]`);
+
+      if (existing) {
+        // Just update its text
+        existing.textContent = tag;
+      } else {
+        // Append a brand-new <span class="badge …"> under the same container
+        const badge = document.createElement("span");
+        badge.className = "badge bg-primary me-1";
+        badge.textContent = tag;
+        badge.setAttribute("data-rect-uid", rectUid);
+        container.appendChild(badge);
+      }
+    }
+  document.getElementById('compileCommentBtn').addEventListener('click', function() {
+    // Build an array of { level, comment } pairs from drawnBoxes:
+    const annotations = [];
+    for (const mriId in drawnBoxes) {
+      if (!Array.isArray(drawnBoxes[mriId])) continue;
+      drawnBoxes[mriId].forEach(box => {
+        if (box.comment && box.comment.trim()) {
+          annotations.push({
+            level:   box.level || "",
+            comment: box.comment.trim()
+          });
+        }
+      });
+    }
+
+    if (annotations.length === 0) {
+      alert("No annotations to compile.");
+      return;
+    }
+
+    // POST to /api/compile-report/
+    fetch("/api/compile-report/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": getCSRFToken()
+      },
+      body: JSON.stringify({ annotations: annotations })
+    })
+    .then(response =>
+      response.json().then(json => ({ status: response.status, body: json }))
+    )
+    .then(({ status, body }) => {
+      if (status >= 400) {
+        const err = body.error || "Unknown server error";
+        alert("Server error: " + err);
+        return;
+      }
+      if (body.report) {
+        // Write the compiled report into the “Clinician’s Notes” textarea:
+        clinicianNotesTextarea.value = body.report;
+      } else {
+        alert("Unexpected response from server.");
+      }
+    })
+    .catch(err => {
+      console.error("Fetch error:", err);
+      alert("Failed to compile comments. See console for details.");
+    });
+  });
+  refreshBadges();
+
+
+
+</script>
+
+<!-- Column for Severity Assessment Dropdowns -->
+
+    {#    <div class="col-md-4">#}
+    {#        #}
+    {#        <!-- Stenosis Severity -->#}
+    {#        <div class="input-group mb-3">#}
+    {#            <div class="input-group-prepend">#}
+    {#                <label class="input-group-text fixed-width-label" for="stenosisSeverity">Stenosis Severity</label>#}
+    {#            </div>#}
+    {#            <select class="form-select small-font" id="stenosisSeverity">#}
+    {#                <option selected>None</option>#}
+    {#                <option value="1">Mild</option>#}
+    {#                <option value="2">Moderate</option>#}
+    {#                <option value="3">Severe</option>#}
+    {#            </select>#}
+    {#        </div>#}
+    {##}
+    {#        <!-- Dural/Thecal Sac Compression -->#}
+    {#        <div class="input-group mb-3">#}
+    {#            <div class="input-group-prepend">#}
+    {#                <label class="input-group-text fixed-width-label" for="duralSacCompression">Dural/Thecal Sac Compression</label>#}
+    {#            </div>#}
+    {#            <select class="form-select small-font" id="duralSacCompression">#}
+    {#                <option selected>None</option>#}
+    {#                <option value="1">Mild</option>#}
+    {#                <option value="2">Moderate</option>#}
+    {#                <option value="3">Severe</option>#}
+    {#            </select>#}
+    {#        </div>#}
+    {##}
+    {#        <div class="input-group mb-3">#}
+    {#            <div class="input-group-prepend">#}
+    {#                <label class="input-group-text fixed-width-label" for="foraminalStenosis">Foraminal Stenosis</label>#}
+    {#            </div>#}
+    {#            <select class="form-select small-font" id="foraminalStenosis">#}
+    {#                <option selected>None</option>#}
+    {#                <option value="1">Mild</option>#}
+    {#                <option value="2">Moderate</option>#}
+    {#                <option value="3">Severe</option>#}
+    {#            </select>#}
+    {#        </div>#}
+    {##}
+    {#        <!-- Dural/Thecal Sac Compression -->#}
+    {#        <div class="input-group mb-3">#}
+    {#            <div class="input-group-prepend">#}
+    {#                <label class="input-group-text fixed-width-label" for="discHerniation">Disc Herniation Severity</label>#}
+    {#            </div>#}
+    {#            <select class="form-select small-font" id="discHerniation">#}
+    {#                <option selected>None</option>#}
+    {#                <option value="1">Protrusion</option>#}
+    {#                <option value="2">Extrusion</option>#}
+    {#                <option value="3">Sequestration</option>#}
+    {#                <option value="4">Bulge</option>#}
+    {#            </select>#}
+    {#        </div>#}
+    {##}
+    {#        <div class="input-group mb-3">#}
+    {#            <div class="input-group-prepend">#}
+    {#                <label class="input-group-text fixed-width-label" for="discHerniationType">Disc Herniation Type</label>#}
+    {#            </div>#}
+    {#            <select class="form-select small-font" id="discHerniationType">#}
+    {#                <option selected>None</option>#}
+    {#                <option value="1">Central</option>#}
+    {#                <option value="2">Left</option>#}
+    {#                <option value="3">Right</option>#}
+    {#                <option value="4">Bulge</option>#}
+    {#            </select>#}
+    {#        </div>#}
+    {##}
+    {#        <div class="input-group mb-3">#}
+    {#            <div class="input-group-prepend">#}
+    {#                <label class="input-group-text fixed-width-label" for="annularTear">Annular Tear</label>#}
+    {#            </div>#}
+    {#            <select class="form-select small-font" id="annularTear">#}
+    {#                <option selected>Absent</option>#}
+    {#                <option value="1">Present</option>#}
+    {#            </select>#}
+    {#        </div>#}
+    {##}
+    {#        <div class="input-group mb-3">#}
+    {#            <div class="input-group-prepend">#}
+    {#                <label class="input-group-text fixed-width-label" for="facetHypertrophy">Facet Hypertrophy</label>#}
+    {#            </div>#}
+    {#            <select class="form-select small-font" id="facetHypertrophy">#}
+    {#                <option selected>Absent</option>#}
+    {#                <option value="1">Present</option>#}
+    {#            </select>#}
+    {#        </div>#}
+    {##}
+    {#        <div class="input-group mb-3">#}
+    {#            <div class="input-group-prepend">#}
+    {#                <label class="input-group-text fixed-width-label" for="facetArthropathy">Facet Arthropathy</label>#}
+    {#            </div>#}
+    {#            <select class="form-select small-font" id="facetArthropathy">#}
+    {#                <option selected>Absent</option>#}
+    {#                <option value="1">Present</option>#}
+    {#            </select>#}
+    {#        </div>#}
+    {##}
+    {#        <div class="input-group mb-3">#}
+    {#            <div class="input-group-prepend">#}
+    {#                <label class="input-group-text fixed-width-label" for="ligamentumFlavumHypertrophy">Ligamentum Flavum Hypertrophy</label>#}
+    {#            </div>#}
+    {#            <select class="form-select small-font" id="ligamentumFlavumHypertrophy">#}
+    {#                <option selected>Absent</option>#}
+    {#                <option value="1">Present</option>#}
+    {#            </select>#}
+    {#        </div>#}
+    {#    </div>#}
+{% endblock %}

@@ -80,6 +80,9 @@
                   <select class="form-select" id="patientSelect" name="patient_db">
                     <option value="new" selected>New Patient</option>
                     <!-- dynamically render other patients here -->
+                    {% for p in patients %}
+                        <option value="{{ p.id }}">{{ p.id }} — {{ p.annotator_inst }}</option>
+                    {% endfor %}
                   </select>
                 </div>
               </div>
@@ -289,50 +292,43 @@
     // This function is called when files are selected.
     // It constructs a FormData object with the selected files and sends them via AJAX.
     function uploadFiles(inputId) {
-       var fileInput = document.getElementById(inputId);
-       var files = fileInput.files;
-       if (files.length === 0) {
-          return;
-       }
+      var fileInput  = document.getElementById(inputId);
+      var files      = Array.from(fileInput.files);
+      if (files.length === 0) return;
 
-       var formData = new FormData();
-       // Append each file to the FormData object using the inputId as the key.
-       for (var i = 0; i < files.length; i++) {
-           formData.append(inputId, files[i]);
-       }
+      var formData   = new FormData();
+      files.forEach(f => formData.append(inputId, f));
 
-       // Create an array of the File objects so we can later attach them to the images array.
-       var filesArray = Array.from(files);
+      fetch('/api/process-mri-for-view/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCookie('csrftoken') },
+        body: formData
+      })
+      .then(res => res.json())
+      .then(data => {
+        console.log('API response:', data);
 
-       fetch('/api/process-mri-for-view/', {
-           method: 'POST',
-           headers: {
-               'X-CSRFToken': getCookie('csrftoken')
-           },
-           body: formData
-       })
-       .then(response => response.json())
-       .then(data => {
-           console.log('API response:', data);
-           // Assume the API returns an array of file URLs under "files".
-           // Combine these URLs with the original File objects.
-           images = data.files.map(function(filePath, index) {
-              return {
-                id: index,
-                src: filePath,
-                selected: false,
-                file: filesArray[index],
-                // Assuming the API returns metadata arrays:
-                patient_metadata: data.patient_metadata ? data.patient_metadata[index] : {},
-                mri_metadata: data.mri_metadata ? data.mri_metadata[index] : {}
-              };
-            });
-            renderGrid();
-       })
-       .catch(error => {
-           console.error('Error uploading files:', error);
-       });
+        // build an array of new image‐objects
+        const newImages = data.files.map((filePath, idx) => ({
+          id: images.length + idx,    // continue IDs from existing length
+          src: filePath,
+          selected: false,
+          file: files[idx],
+          patient_metadata: data.patient_metadata?.[idx] || {},
+          mri_metadata:     data.mri_metadata?.[idx]     || {}
+        }));
+
+        // append to the existing array
+        images = images.concat(newImages);
+
+        // re‐draw the grid with *all* images
+        renderGrid();
+      })
+      .catch(err => {
+        console.error('Error uploading files:', err);
+      });
     }
+
 
     // Listen for changes on the "Select All" checkbox.
     document.getElementById('selectAllCheckbox').addEventListener('change', function() {
@@ -484,9 +480,14 @@
         var annotatorInstitutionSelect = document.getElementById('annotatorInstitution');
         var annotatorInstitutionValue = annotatorInstitutionSelect ? annotatorInstitutionSelect.value : '';
 
+        // Now grab the Patient select (it always exists if module=assessment_reporting)
+        var patientSelect = document.getElementById('patientSelect');
+        var patientValue = patientSelect ? patientSelect.value : '';
+
         // Append these values to the FormData.
         formData.append('uploaded_module', moduleValue);
         formData.append('annotator_institution', annotatorInstitutionValue);
+        formData.append('patient_db', patientValue);
 
         // Make the AJAX call to the save_image API endpoint
         fetch('/api/save-image/', {

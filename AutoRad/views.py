@@ -4,6 +4,8 @@ import json
 import os
 from io import BytesIO
 from urllib.parse import urlparse
+from itertools import chain
+from operator import attrgetter
 
 import cv2
 import numpy as np
@@ -27,7 +29,8 @@ from AutoRad.accounts.forms import CustomUserCreationForm
 # import customized class models
 from .models import MRI, UNetMask, UNetMaskStructure, Patient
 from .utils import model, device
-from .utils import one_hot_encode_masks, dicom_to_png_bytes, extract_mri_metadata, extract_patient_metadata
+from .utils import one_hot_encode_masks, dicom_to_png_bytes, extract_mri_metadata, extract_patient_metadata, \
+    get_tag_pipeline
 
 SELECTED_MRI_ID = None
 
@@ -53,17 +56,32 @@ class SignUpView(CreateView):
 
 @login_required
 def home(request):
-    user_institution = (request.user.institution or "").strip().lower()
+    user_inst = (request.user.institution or "").strip().lower()
 
-    # Check if the user is from The University of Memphis
-    if user_institution == "the university of memphis":
-        images = MRI.objects.all()
-    else:
-        # Otherwise, only show MRI from users sharing the same institution.
-        images = MRI.objects.filter(annotator_inst__iexact=request.user.institution)
+    # Base queryset, already ordered by creation time
+    qs = MRI.objects.select_related('user', 'Patient').order_by('created_at')
+    if user_inst != "the university of memphis":
+        qs = qs.filter(user__institution__iexact=user_inst)
 
-    context = {'images': images}
-    return render(request, 'home.html', context)
+    # Separate the two cases
+    assessment_qs = qs.filter(module='assessment_reporting')
+    other_qs = qs.exclude(module='assessment_reporting')
+
+    # Pick only the first MRI per patient for assessment_reporting
+    first_by_patient = {}
+    for m in assessment_qs:
+        pid = m.Patient_id
+        if pid not in first_by_patient:
+            first_by_patient[pid] = m
+
+    # Combine:
+    images = list(other_qs) + list(first_by_patient.values())
+    # (Optional) Sort the combined list by created_at if you want global ordering:
+    images.sort(key=attrgetter('created_at'))
+
+    return render(request, 'home.html', {
+        'images': images,
+    })
 
 
 def saveImg(request):
@@ -79,17 +97,37 @@ def saveImg(request):
         institutions = []
         print("Error loading institutions.json:", e)
 
-    # Get the current user's institution if available
+    # 2. Figure out the user’s institution
     user_institution = None
     if request.user.is_authenticated:
-        user_institution = request.user.institution
+        user_institution = (request.user.institution or "").strip()
 
-    context = {
-        'institutions': institutions,  # This should be a list of institution names (or tuples if you prefer)
+    # 3. Select which patients to show
+    if user_institution and user_institution.lower() == "the university of memphis":
+        # Memphis sees *all* patients
+        patients = Patient.objects.all()
+    elif user_institution:
+        # everyone else sees only patients annotated under their institution
+        patients = Patient.objects.filter(annotator_inst__iexact=user_institution)
+    else:
+        # not logged in (or no institution) → no patients
+        patients = Patient.objects.none()
+
+    # 4. Render your template
+    return render(request, 'saveImg.html', {
+        'institutions': institutions,
         'user_institution': user_institution,
-    }
+        'patients': patients,
+    })
 
-    return render(request, 'saveImg.html', context)
+
+@login_required
+def assessment_view(request, patient_id):
+    patient_mris = MRI.objects.filter(Patient_id=patient_id).order_by('created_at')
+    return render(request, 'assessment.html', {
+        'patient_mris': patient_mris,
+        'patient': patient_mris.first().Patient if patient_mris.exists() else None,
+    })
 
 
 @api_view(['POST'])
@@ -486,6 +524,39 @@ def save_image(request):
     uploaded_module = request.POST.get('uploaded_module', '').strip()
     annotator_inst = (request.POST.get('annotator_institution', '').strip()
                       or request.user.institution or '')
+    patient_choice = request.POST.get('patient_db', 'new')
+
+    # --- 1) Resolve or create exactly one Patient for this batch ---
+    if upload_img_type in ('dicom', 'ima'):
+        if patient_choice != 'new':
+            # user picked an existing patient
+            try:
+                patient_obj = Patient.objects.get(
+                    pk=int(patient_choice),
+                    user=request.user
+                )
+            except (Patient.DoesNotExist, ValueError):
+                return Response(
+                    {"error": f"Selected patient ({patient_choice}) not found."},
+                    status=400
+                )
+        else:
+            # always create exactly one new Patient
+            first_meta = patient_meta_list[0] if patient_meta_list else {}
+            external_id = first_meta.get('patient_id', '').strip() or "N/A"
+            patient_obj = Patient.objects.create(
+                id_from_inst=external_id,
+                age=first_meta.get('age', ''),
+                weight=first_meta.get('weight', None),
+                height=first_meta.get('height', None),
+                sex=first_meta.get('sex', ''),
+                user=request.user,
+                from_module=uploaded_module,
+                annotator_inst=annotator_inst,
+            )
+    else:
+        # JPEG/PNG uploads skip patient entirely
+        patient_obj = None
 
     for idx, file_url in enumerate(selected_files):
 
@@ -533,35 +604,8 @@ def save_image(request):
         # # remove temp
         # default_storage.delete(temp_key)
 
-        # metadata lookup
-        if upload_img_type in ('dicom', 'ima'):
-            pm = patient_meta_list[idx] if idx < len(patient_meta_list) else {}
-            mm = mri_meta_list[idx] if idx < len(mri_meta_list) else {}
-
-            ext_pid = pm.get('patient_id', '').strip()
-            if ext_pid:
-                patient_obj = Patient.objects.filter(
-                    id_from_inst=ext_pid, user=request.user
-                ).first()
-                if not patient_obj:
-                    patient_obj = Patient.objects.create(
-                        id_from_inst=ext_pid,
-                        age=pm.get('age', ''),
-                        weight=pm.get('weight', None),
-                        height=pm.get('height', None),
-                        sex=pm.get('sex', ''),
-                        user=request.user,
-                        from_module=pm.get('from_module', '')
-                    )
-            else:
-                patient_obj, _ = Patient.objects.get_or_create(
-                    id_from_inst="N/A", user=request.user,
-                    defaults={'age': '', 'weight': None, 'height': None, 'sex': ''}
-                )
-        else:
-            patient_obj = None
-            mm = {}
-
+        # grab this file’s DICOM metadata (or empty dict):
+        mm = mri_meta_list[idx] if idx < len(mri_meta_list) else {}
         # store MRI row
         MRI.objects.create(
             filename=new_filename,
@@ -646,3 +690,84 @@ def delete(request, mri_id):
     mri = MRI.objects.get(pk=mri_id)
     mri.delete()
     return redirect('/')
+
+
+@api_view(['POST'])
+def generate_tag(request):
+    comment = request.data.get('comment', "").strip()
+    level = request.data.get('level', "").strip()
+
+    if not comment:
+        return Response({"error": "No comment provided."}, status=400)
+
+    # Build the prompt differently if level is empty vs non-empty
+    if level:
+        prompt = (
+            f"IVD level: {level}\n"
+            f"Comment: {comment}\n"
+            "Generate a short tag in the format '<IVD level>: <diagnosis>'.\n"
+            "Tag:"
+        )
+    else:
+        prompt = (
+            f"Comment: {comment}\n"
+            "Generate a short tag describing the diagnosis only.\n"
+            "Tag:"
+        )
+
+    tag_pipe = get_tag_pipeline()
+    try:
+        out = tag_pipe(prompt, max_length=32, do_sample=False)[0]["generated_text"].strip()
+    except Exception as e:
+        return Response({"error": f"Tag-pipeline failed: {str(e)}"}, status=500)
+
+    return Response({"tag": out})
+
+
+@api_view(['POST'])
+def compile_report(request):
+    """
+    Expects JSON of the form:
+        { "annotations": [
+            { "level": "L5-S1", "comment": "Mild RT paracentral disc protrusion …" },
+            { "level": "",       "comment": "General spondylosis changes." },
+            { "level": "L4-L5", "comment": "mild disc bulge noted" }
+          ]
+        }
+    Returns:
+        { "report": "<coherent radiology report>" }
+    """
+    data = request.data
+    anns = data.get("annotations", None)
+    if not isinstance(anns, list) or not anns:
+        return Response({"error": "Please supply a non-empty list of {level, comment} pairs."}, status=400)
+
+    bullet_lines = []
+    for item in anns:
+        lvl = (item.get("level") or "").strip()
+        cmm = (item.get("comment") or "").strip()
+        if not cmm:
+            continue
+        if lvl:
+            bullet_lines.append(f"IVD level: {lvl}\nComment: {cmm}")
+        else:
+            bullet_lines.append(f"Comment: {cmm}")
+
+    if not bullet_lines:
+        return Response({"error": "No valid (level, comment) entries."}, status=400)
+
+    prompt = (
+            "You are a radiology assistant.  Given the following IVD‐level and comment pairs, "
+            "compile them into one coherent radiology report:\n\n"
+            + "\n\n".join(bullet_lines)
+            + "\n\nReport:"
+    )
+
+    tag_pipe = get_tag_pipeline()
+    try:
+        outputs = tag_pipe(prompt, max_length=512, do_sample=False)
+        raw = outputs[0]["generated_text"].strip()
+    except Exception as e:
+        return Response({"error": f"Tag-pipeline failed: {str(e)}"}, status=500)
+
+    return Response({"report": raw})

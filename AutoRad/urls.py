@@ -19,8 +19,7 @@ from django.conf.urls.static import static
 from django.urls import path, include, reverse_lazy
 from django.contrib.auth.views import LogoutView, LoginView
 
-from AutoRad.views import home, saveImg, process_image, view_mask, get_control_points, SignUpView, save_image, delete, upload_mask, get_mri_path, process_mri_for_view
-
+import AutoRad.views
 
 
 urlpatterns = [
@@ -29,23 +28,26 @@ urlpatterns = [
     # Auth related paths
     path('accounts/login/', LoginView.as_view(template_name='registration/login.html'), name='login'),
     path('accounts/logout/', LogoutView.as_view(next_page=reverse_lazy('login')), name='logout'),
-    path('accounts/signup/', SignUpView.as_view(), name='signup'),
+    path('accounts/signup/', AutoRad.views.SignUpView.as_view(), name='signup'),
 
     # Include default Django auth URLs for good measure (includes password reset)
     path('accounts/', include('django.contrib.auth.urls')),
 
     # Application paths
-    path('', home, name='home'),
-    path('saveImg/', saveImg, name='saveImg'),
-    path('api/get-mri-path/', get_mri_path, name='get_mri_path'),
-    path('api/process-mri-for-view/', process_mri_for_view, name='process_mri_for_view'),
+    path('', AutoRad.views.home, name='home'),
+    path('saveImg/', AutoRad.views.saveImg, name='saveImg'),
+    path('assessment/<int:patient_id>/', AutoRad.views.assessment_view, name='assessment'),
+    path('api/get-mri-path/', AutoRad.views.get_mri_path, name='get_mri_path'),
+    path('api/process-mri-for-view/', AutoRad.views.process_mri_for_view, name='process_mri_for_view'),
     # path('upload-path/', upload_image, name='upload_image'), //This is not in use
-    path('api/process-image/', process_image, name='process_image'),
-    path('api/view-mask/', view_mask, name='view_mask'),
-    path('api/get-control-points/', get_control_points, name='get_control_points'),
-    path('api/upload-mask/', upload_mask, name='upload_mask'),
-    path('api/save-image/', save_image, name='save_image'),
-    path('delete/<str:mri_id>',delete, name='delete')
+    path('api/process-image/', AutoRad.views.process_image, name='process_image'),
+    path('api/view-mask/', AutoRad.views.view_mask, name='view_mask'),
+    path('api/get-control-points/', AutoRad.views.get_control_points, name='get_control_points'),
+    path('api/upload-mask/', AutoRad.views.upload_mask, name='upload_mask'),
+    path('api/save-image/', AutoRad.views.save_image, name='save_image'),
+    path('delete/<str:mri_id>', AutoRad.views.delete, name='delete'),
+    path('api/generate-tag/', AutoRad.views.generate_tag, name='generate_tag'),
+    path('api/compile-report/', AutoRad.views.compile_report, name='compile_report')
 ]
 
 if settings.DEBUG:

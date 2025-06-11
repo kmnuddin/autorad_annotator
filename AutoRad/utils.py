@@ -1,12 +1,16 @@
 from django.conf import settings
 
+from functools import lru_cache
 import io
 import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-import pydicom
+
+import torch
+from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
+
 from PIL import Image
 from .dl.unet import UNet
 from io import BytesIO
@@ -31,6 +35,28 @@ def load_model():
 
     model.load_state_dict(state_dict)
     model.to(device)
+
+
+@lru_cache(maxsize=1)
+def get_tag_pipeline():
+    """
+    Lazily loads and caches a FLAN-T5-small text2text-generation pipeline on CPU.
+    """
+    MODEL_ID = "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_ID, trust_remote_code=True)
+    lm = AutoModelForCausalLM.from_pretrained(MODEL_ID, trust_remote_code=True)
+    # ensure it stays on CPU
+    lm.to("cpu")
+
+    return pipeline(
+        "text-generation",
+        model=lm,
+        tokenizer=tokenizer,
+        device=-1,  # -1 means CPU
+        return_full_text=False,  # only return the newly generated tokens
+        do_sample=False,  # deterministic output
+        max_new_tokens=32
+    )
 
 
 def one_hot_encode_masks(masks_numpy):
