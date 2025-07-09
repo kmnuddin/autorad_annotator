@@ -120,13 +120,48 @@ def saveImg(request):
         'patients': patients,
     })
 
-
 @login_required
 def assessment_view(request, patient_id):
     patient_mris = MRI.objects.filter(Patient_id=patient_id).order_by('created_at')
     return render(request, 'assessment.html', {
         'patient_mris': patient_mris,
         'patient': patient_mris.first().Patient if patient_mris.exists() else None,
+    })
+
+
+@login_required
+def segmentation(request, mri_id):
+    """
+    Retrieve an MRI object by its ID from the query parameters,
+    store that ID in the user's session, and return the path.
+    """
+    if not mri_id:
+        return Response({'error': 'No mri_id provided'}, status=400)
+
+    # 2) Fetch the MRI record
+    try:
+        mri_obj = MRI.objects.get(pk=mri_id)
+    except MRI.DoesNotExist:
+        return Response({'error': f'MRI with id={mri_id} not found'}, status=404)
+
+    # 3) Store the ID in the session
+    # Each user's session is different, so no risk of overwriting across users
+    request.session['selected_mri_id'] = mri_id
+    request.session['selected_mri_path'] = str(mri_obj.path)
+
+    # 4) Build the path you want to return to the front-end
+    #    If `mri_obj.path` is an ImageField or FileField, you can do `mri_obj.path.url`
+    #    If it's just a string path, you can return it as-is
+    file_path = None
+    if hasattr(mri_obj.path, 'url'):
+        # If it's an ImageField or FileField
+        file_path = mri_obj.path.url
+    else:
+        # If it's a CharField storing path
+        file_path = str(mri_obj.path)
+
+    return render(request, 'segmentation.html', {
+        'path': file_path
     })
 
 
@@ -340,7 +375,7 @@ def get_control_points(request):
         cnts = sorted(cnts, key=cv2.contourArea)
 
         structure_cnt_points[cls] = [cnt.tolist() for cnt in cnts]
-    print(structure_cnt_points)
+
     return JsonResponse({'cls_cnt': structure_cnt_points})
 
 
@@ -560,7 +595,7 @@ def save_image(request):
 
     for idx, file_url in enumerate(selected_files):
 
-        ## figure out the real storage key:
+        # figure out the real storage key:
         if file_url.startswith('http'):
             parsed = urlparse(file_url)
             temp_key = parsed.path.lstrip('/')
@@ -637,6 +672,8 @@ def save_image(request):
 
     return redirect('/')
 
+@api_view(['GET'])
+def predict_lumbar_level(request):
 
 @api_view(['GET'])
 def get_mri_path(request):
@@ -700,26 +737,50 @@ def generate_tag(request):
     if not comment:
         return Response({"error": "No comment provided."}, status=400)
 
-    # Build the prompt differently if level is empty vs non-empty
+    # Build a stronger few-shot prompt
+    prompt = (
+        "You are a radiology tag generator. "
+        "Given an optional IVD level and a clinician comment, "
+        "output EXACTLY ONE TAG and nothing else, in the format:\n"
+        "  <Level>: <diagnosis>\n"
+        "If no level is provided, just output the diagnosis.\n\n"
+        "### Example 1\n"
+        "Input:\n"
+        "IVD level: L5-S1\n"
+        "Comment: Mild RT paracentral disc protrusion noted, abutting the thecal sac.\n"
+        "Output Tag:\n"
+        "L5-S1: disc protrusion\n\n"
+        "### Example 2\n"
+        "Input:\n"
+        "Comment: Foraminal stenosis on the right side.\n"
+        "Output Tag:\n"
+        "foraminal stenosis\n\n"
+        "### Example 3\n"
+        "Input:\n"
+        "IVD level: L4-L5\n"
+        "Comment: Diffuse disc bulge noted.\n"
+        "Output Tag:\n"
+        "L4-L5: disc bulge\n\n"
+        "### Now your turn\n"
+        "Input:\n"
+    )
     if level:
-        prompt = (
-            f"IVD level: {level}\n"
-            f"Comment: {comment}\n"
-            "Generate a short tag in the format '<IVD level>: <diagnosis>'.\n"
-            "Tag:"
-        )
-    else:
-        prompt = (
-            f"Comment: {comment}\n"
-            "Generate a short tag describing the diagnosis only.\n"
-            "Tag:"
-        )
+        prompt += f"IVD level: {level}\n"
+    prompt += f"Comment: {comment}\n"
+    prompt += "Output Tag:\n"
 
     tag_pipe = get_tag_pipeline()
     try:
-        out = tag_pipe(prompt, max_length=32, do_sample=False)[0]["generated_text"].strip()
+        out = tag_pipe(
+            prompt,
+            max_length=16,
+            num_beams=4,
+            do_sample=False
+        )[0]["generated_text"].strip()
+        # strip any accidental prefix
+        out = out.splitlines()[0]
     except Exception as e:
-        return Response({"error": f"Tag-pipeline failed: {str(e)}"}, status=500)
+        return Response({"error": f"Tag generation failed: {e}"}, status=500)
 
     return Response({"tag": out})
 

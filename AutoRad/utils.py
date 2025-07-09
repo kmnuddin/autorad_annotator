@@ -1,19 +1,16 @@
-from django.conf import settings
-
-from functools import lru_cache
-import io
 import os
+from functools import lru_cache
+from io import BytesIO
+
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
-
-import torch
-from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
-
 from PIL import Image
+from django.conf import settings
+from transformers import pipeline, AutoTokenizer, AutoModelForSeq2SeqLM
+
 from .dl.unet import UNet
-from io import BytesIO
 
 model = None
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -40,23 +37,33 @@ def load_model():
 @lru_cache(maxsize=1)
 def get_tag_pipeline():
     """
-    Lazily loads and caches a FLAN-T5-small text2text-generation pipeline on CPU.
+    Lazily loads and caches a Llama-3.2-1B text-generation pipeline on CPU.
     """
-    MODEL_ID = "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_ID, trust_remote_code=True)
-    lm = AutoModelForCausalLM.from_pretrained(MODEL_ID, trust_remote_code=True)
-    # ensure it stays on CPU
+    MODEL_ID = "google/flan-t5-small"
+
+    # Load tokenizer & model with trust_remote_code for custom architectures
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
+    lm = AutoModelForSeq2SeqLM.from_pretrained(MODEL_ID)
+
+    # Force CPU
     lm.to("cpu")
 
+    # Build a deterministic text-generation pipeline
     return pipeline(
-        "text-generation",
+        "text2text-generation",
         model=lm,
         tokenizer=tokenizer,
         device=-1,  # -1 means CPU
-        return_full_text=False,  # only return the newly generated tokens
-        do_sample=False,  # deterministic output
-        max_new_tokens=32
+        max_length=64,  # adjust if you need longer outputs
+        do_sample=False  # deterministic outputs
     )
+
+@lru_cache(maxsize=1)
+def load_lumbar_model():
+    path = os.path.join(settings.BASE_DIR, 'AutoRad', 'dl', 'lumbar_model.pth')
+    lumbar_model = torch.load(path, map_location="cpu")
+    lumbar_model.to(device)
+    return lumbar_model
 
 
 def one_hot_encode_masks(masks_numpy):
@@ -97,39 +104,6 @@ def one_hot_encode_masks(masks_numpy):
 
     return one_hot.numpy()
 
-
-# def dicom_to_png(file_obj, output_path):
-#     """
-#     Convert a DICOM/IMA file (from a file-like object) to a PNG image
-#     and save it to output_path.
-#     """
-#     # Read the entire file into memory
-#     file_bytes = file_obj.read()
-#     # Wrap bytes in a BytesIO stream so pydicom can read it.
-#     f = io.BytesIO(file_bytes)
-#     # Read the DICOM dataset.
-#     ds = pydicom.dcmread(f)
-#     # Extract pixel array from the dataset.
-#     arr = ds.pixel_array
-#
-#     # Normalize the array to the 0-255 range.
-#     arr = arr.astype(np.float32)
-#     min_val = np.min(arr)
-#     max_val = np.max(arr)
-#     if max_val - min_val > 0:
-#         arr = ((arr - min_val) / (max_val - min_val)) * 255.0
-#     arr = arr.astype(np.uint8)
-#
-#     # If the DICOM file has multiple frames, take the first frame.
-#     if arr.ndim > 2:
-#         arr = arr[0]
-#
-#     # Convert the numpy array to a PIL Image.
-#     img = Image.fromarray(arr)
-#     # Save the image as a PNG.
-#     img.save(output_path, format='PNG')
-#
-#     return ds
 
 def dicom_to_png_bytes(ds):
     """

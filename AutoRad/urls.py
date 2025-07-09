@@ -36,6 +36,7 @@ urlpatterns = [
     # Application paths
     path('', AutoRad.views.home, name='home'),
     path('saveImg/', AutoRad.views.saveImg, name='saveImg'),
+    path('segmentation/<int:mri_id>/', AutoRad.views.segmentation, name='segmentation'),
     path('assessment/<int:patient_id>/', AutoRad.views.assessment_view, name='assessment'),
     path('api/get-mri-path/', AutoRad.views.get_mri_path, name='get_mri_path'),
     path('api/process-mri-for-view/', AutoRad.views.process_mri_for_view, name='process_mri_for_view'),
