@@ -29,8 +29,7 @@ from AutoRad.accounts.forms import CustomUserCreationForm
 # import customized class models
 from .models import MRI, UNetMask, UNetMaskStructure, Patient
 from .utils import model, device
-from .utils import one_hot_encode_masks, dicom_to_png_bytes, extract_mri_metadata, extract_patient_metadata, \
-    get_tag_pipeline
+from .utils import one_hot_encode_masks, dicom_to_png_bytes, extract_mri_metadata, extract_patient_metadata, get_tag_pipeline, load_lumbar_model
 
 SELECTED_MRI_ID = None
 
@@ -674,6 +673,46 @@ def save_image(request):
 
 @api_view(['GET'])
 def predict_lumbar_level(request):
+    """
+        Given ?mri_id=123, load the MRI, run your ML model to get level,
+        and return {"level": "L3-L4"}.
+        """
+    mri_id = request.GET.get('mri_id')
+    if not mri_id:
+        return Response({'error': 'mri_id required'}, status=400)
+
+    try:
+        mri = MRI.objects.get(pk=mri_id)
+    except MRI.DoesNotExist:
+        return Response({'error': 'not found'}, status=404)
+
+    try:
+        with default_storage.open(mri.path, 'rb') as f:
+            data = f.read()
+    except Exception as e:
+        return Response(
+            {"error": f"Could not MRI: {mri.path}: {e}"},
+            status=500
+        )
+    # decode into a grayscale numpy array
+    arr = np.frombuffer(data, dtype=np.uint8)
+    img = cv2.imdecode(arr, cv2.IMREAD_GRAYSCALE)
+
+
+    img = img[np.newaxis, np.newaxis, ...].astype(np.float32)
+
+    lumbar_model = load_lumbar_model()
+    lumbar_model.to(device)
+    lumbar_model.eval()
+
+    inp = torch.from_numpy(img).to(device)
+
+    with torch.no_grad():
+        out = lumbar_model(inp)
+    level = np.argmax(out.cpu().numpy(), axis=1)
+
+    return Response({"level": level})
+
 
 @api_view(['GET'])
 def get_mri_path(request):

@@ -44,6 +44,7 @@ urlpatterns = [
     path('api/process-image/', AutoRad.views.process_image, name='process_image'),
     path('api/view-mask/', AutoRad.views.view_mask, name='view_mask'),
     path('api/get-control-points/', AutoRad.views.get_control_points, name='get_control_points'),
+    path('api/predict-lumbar-level/', AutoRad.views.predict_lumbar_level, name='predict_lumbar_level'),
     path('api/upload-mask/', AutoRad.views.upload_mask, name='upload_mask'),
     path('api/save-image/', AutoRad.views.save_image, name='save_image'),
     path('delete/<str:mri_id>', AutoRad.views.delete, name='delete'),
